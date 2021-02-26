@@ -57,6 +57,7 @@ namespace MobJustice
 			ServerApi.Hooks.NetGetData.Register(this, OnGetNetData);
 			TShockAPI.Hooks.GeneralHooks.ReloadEvent += OnReload;
 			config = Config.GetConfigData();
+			UpdateLynchRefs();
 			// Methods to perform when plugin is initzialising i.e. hookings
 		}
 		//private HashSet<string> lynchables = new HashSet<string>();
