@@ -14,8 +14,8 @@ namespace MobJustice
 	{
 		#region Defaults
 
-		private const int PLUGIN_ENABLED = 1;
-		private const string MESSAGE = "{PLAYER_NAME}'s PvP has been forcefully enabled for doing warcrimes";
+		private const bool PLUGIN_ENABLED = true;
+		private const string MESSAGE = "Your PvP has been forcefully enabled for doing warcrimes";
 		private const byte MESSAGE_RED = 255;
 		private const byte MESSAGE_GREEN = 255;
 		private const byte MESSAGE_BLUE = 255;
@@ -27,6 +27,10 @@ namespace MobJustice
 		private const byte UNLYNCH_PLAYER_MESSAGE_RED = 255;
 		private const byte UNLYNCH_PLAYER_MESSAGE_GREEN = 255;
 		private const byte UNLYNCH_PLAYER_MESSAGE_BLUE = 255;
+		private const string LYNCH_PLAYER_MESSAGE = "{PLAYER_NAME} is now lynchable";
+		private const byte LYNCH_PLAYER_MESSAGE_RED = 255;
+		private const byte LYNCH_PLAYER_MESSAGE_GREEN = 255;
+		private const byte LYNCH_PLAYER_MESSAGE_BLUE = 0;
 
 		#endregion
 
@@ -69,7 +73,7 @@ namespace MobJustice
 
 		public class ConfigData
 		{
-			public int pluginenabled;
+			public bool pluginenabled;
 
 			public string message;
 			public byte messagered;
@@ -83,6 +87,13 @@ namespace MobJustice
 			public byte unlynchplayermessagered;
 			public byte unlynchplayermessagegreen;
 			public byte unlynchplayermessageblue;
+			public string lynchplayermessage;
+			public byte lynchplayermessagered;
+			public byte lynchplayermessagegreen;
+			public byte lynchplayermessageblue;
+			//public List<string> savedLynchables = new List<string>();
+			public HashSet<string> savedLynchables;
+
 
 			public ConfigData()
 			{
@@ -99,6 +110,11 @@ namespace MobJustice
 				unlynchplayermessagered = UNLYNCH_PLAYER_MESSAGE_RED;
 				unlynchplayermessagegreen = UNLYNCH_PLAYER_MESSAGE_GREEN;
 				unlynchplayermessageblue = UNLYNCH_PLAYER_MESSAGE_BLUE;
+				lynchplayermessage = LYNCH_PLAYER_MESSAGE;
+				lynchplayermessagered = LYNCH_PLAYER_MESSAGE_RED;
+				lynchplayermessagegreen = LYNCH_PLAYER_MESSAGE_GREEN;
+				lynchplayermessageblue = LYNCH_PLAYER_MESSAGE_BLUE;
+				savedLynchables = new HashSet<string>();
 			}
 		}
 	}

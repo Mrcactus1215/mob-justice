@@ -18,7 +18,7 @@ namespace MobJustice
 	{
 
 		public override string Author  {
-			get{ return "MrCactus and Hextator"; }
+			get{ return "Hextator and MrCactus"; }
 		}
 
 		public override string Description  {
@@ -34,8 +34,11 @@ namespace MobJustice
 		{
 			if (disposing)
 			{
-				ServerApi.Hooks.GameUpdate.Deregister(this, Game_Update);
 				ServerApi.Hooks.GameInitialize.Deregister(this, Game_Initialize);
+				ServerApi.Hooks.ServerJoin.Deregister(this, OnPlayerJoin);
+				ServerApi.Hooks.ServerLeave.Deregister(this, OnPlayerLeave);
+				ServerApi.Hooks.NetGetData.Deregister(this, OnGetNetData);
+				TShockAPI.Hooks.GeneralHooks.ReloadEvent -= OnReload;
 				// Methods to perform when the Plugin is disposed i.e. unhooks
 			}
 		}
@@ -45,21 +48,105 @@ namespace MobJustice
 			// Load priority. smaller numbers loads earlier
 			Order = 1;
 		}
-
+		private static Config.ConfigData config;
 		public override void Initialize()
 		{
-			ServerApi.Hooks.GameUpdate.Register(this, Game_Update);
 			ServerApi.Hooks.GameInitialize.Register(this, Game_Initialize);
+			ServerApi.Hooks.ServerJoin.Register(this, OnPlayerJoin);
+			ServerApi.Hooks.ServerLeave.Register(this, OnPlayerLeave);
+			ServerApi.Hooks.NetGetData.Register(this, OnGetNetData);
+			TShockAPI.Hooks.GeneralHooks.ReloadEvent += OnReload;
+			config = Config.GetConfigData();
 			// Methods to perform when plugin is initzialising i.e. hookings
 		}
-		private Dictionary<string, bool> lynchableStates = new Dictionary<string, bool>();
-		readonly Config.ConfigData config = Config.GetConfigData();
+		//private HashSet<string> lynchables = new HashSet<string>();
+		private HashSet<TSPlayer> lynchableRefs = new HashSet<TSPlayer>();
+		private void OnReload(TShockAPI.Hooks.ReloadEventArgs args)
+		{
+			config = Config.GetConfigData();
+			UpdateLynchRefs();
+			args?.Player?.SendSuccessMessage("[MobJustice] Successfully reloaded config.");
+		}
+		private void OnPlayerJoin(JoinEventArgs args)
+		{
+			//HashSet<string> lynchableRefs should also be modified by login/logout, and should match lynchables (if name is in lynchables then the player with that name should be in lynchableRefs)
+			TSPlayer player = TShock.Players[args.Who];
+			if (null == player)
+			{
+				return;
+			}
+			if (config.savedLynchables.Contains(player.Name))
+			{
+				lynchableRefs.Add(player);
+			}
+		}
+		private void UpdateLynchRefs()
+		{
+			lynchableRefs = new HashSet<TSPlayer>();
+			foreach (TSPlayer player in TShock.Players)
+			{
+				if (config.savedLynchables.Contains(player.Name))
+				{
+					lynchableRefs.Add(player);
+				}
+			}
+		}
+		private void OnPlayerLeave(LeaveEventArgs args)
+		{
+			TSPlayer player = TShock.Players[args.Who];
+			if (null == player)
+			{
+				return;
+			}
+			if (!config.savedLynchables.Contains(player.Name))
+			{
+				lynchableRefs.Remove(player);
+			}
+		}
+		private void OnGetNetData(GetDataEventArgs args)
+		{
+			PacketTypes packetType = args.MsgID;
+			TSPlayer player = TShock.Players[args.Msg.whoAmI];
+			if (null == player)
+			{
+				return;
+			}
+			if (!lynchableRefs.Contains(player))
+			{
+				return;
+			}
+			switch (packetType)
+			{
+				case PacketTypes.TogglePvp:
+					player.TPlayer.hostile = true;
+					player.SendMessage(String.Format("{0}", config.message), config.messagered, config.messagegreen, config.messageblue);
+					break;
+				case PacketTypes.ToggleParty:
+					player.SetTeam(0);
+					player.SendMessage(String.Format("{0}", config.teamMessage), config.teamMessageRed, config.teamMessageGreen, config.teamMessageBlue);
+					break;
+			}
+		}
 		private void Game_Initialize(EventArgs args)
 		{
-			Commands.ChatCommands.Add(new Command(new List<string>() { "tshock.admin.ban", "permissions.ban" }, ForceLynch, "forcelynchable"));
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.force" }, ForceLynch, "forcelynchable"));
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.list" }, LynchList, "listlynch"));
+		}
+		public void LynchList(CommandArgs args)
+		{
+			if (!config.pluginenabled)
+			{
+				return;
+			}
+			args.Player.SendMessage(String.Format("Currently lynchable players: {0}", String.Join(", ", config.savedLynchables.ToList())), 255, 255, 0);
 		}
 		public void ForceLynch(CommandArgs args)
 		{
+			//HashSet<string> lynchables should only be modified by commands
+			if (!config.pluginenabled)
+			{
+				return;
+			}
 			if (!args.Player.IsLoggedIn)
 			{
 				args.Player.SendErrorMessage("You need to be logged in to do that!");
@@ -86,57 +173,18 @@ namespace MobJustice
 				args.Player.SendErrorMessage(String.Format("More than one match found: {0}", String.Join(", ", playerMatches.Select(currPlayer => currPlayer.Name))));
 				return;
 			}
-			bool lynchable = false;
-			lynchableStates.TryGetValue(playerMatches[0].Name, out lynchable);
+			bool lynchable = config.savedLynchables.Contains(playerMatches[0].Name);
 			if (!lynchable) 
-			{ 
-				lynchableStates[playerMatches[0].Name] = true;
+			{
+				config.savedLynchables.Add(playerMatches[0].Name);
+				lynchableRefs.Add(playerMatches[0]);
+				TSPlayer.All.SendMessage(String.Format("{0}", config.lynchplayermessage.Replace("{PLAYER_NAME}", playerMatches[0].Name)), config.lynchplayermessagered, config.lynchplayermessagegreen, config.lynchplayermessageblue);
 			}
 			else
 			{
+				config.savedLynchables.Remove(playerMatches[0].Name);
+				lynchableRefs.Remove(playerMatches[0]);
 				TSPlayer.All.SendMessage(String.Format("{0}", config.unlynchplayermessage.Replace("{PLAYER_NAME}", playerMatches[0].Name)), config.unlynchplayermessagered, config.unlynchplayermessagegreen, config.unlynchplayermessageblue);
-			}
-			lynchableStates[playerMatches[0].Name] = !lynchable;
-			
-		}
-
-		private void Game_Update(EventArgs args)
-		{
-			Config.ConfigData config = Config.GetConfigData();
-			if (1 != config.pluginenabled)
-			{
-				return;
-			}
-			foreach (TSPlayer player in TShock.Players)
-			{
-				if (null == player)
-				{
-					continue;
-				}
-				bool lynchable = false;
-				lynchableStates.TryGetValue(player.Name, out lynchable);
-				if (!lynchable)
-				{
-					continue;
-				}
-				if (0 != player.Team)
-				{
-					try
-					{
-						player.SendMessage(String.Format("{0}", config.teamMessage), config.teamMessageRed, config.teamMessageGreen, config.teamMessageBlue);
-						try { player.SetTeam(0); } catch (Exception) { Console.WriteLine("Exception from setting player team"); }
-					} catch(Exception) { }
-				}
-				if (!player.TPlayer.hostile)
-				{
-					try
-					{
-						player.TPlayer.hostile = true;
-						try { player.SendData(PacketTypes.TogglePvp, "", player.Index); } catch (Exception) { Console.WriteLine("Exception from TogglePvP try"); }
-						TSPlayer.All.SendMessage(String.Format("{0}", config.message.Replace("{PLAYER_NAME}", player.Name)), config.messagered, config.messagegreen, config.messageblue);
-					}
-					catch (Exception) { Console.WriteLine("Exception from !player.TPlayer.hostile"); }
-				}
 			}
 		}
 	}
