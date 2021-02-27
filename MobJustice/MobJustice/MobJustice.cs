@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-using System.Threading;
 using System.Linq;
-
 using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
-using Terraria.Utilities;
+using Terraria.Localization;
 
 namespace MobJustice {
 
@@ -29,23 +25,20 @@ namespace MobJustice {
 
 		public MobJustice(Main game) : base(game) {
 			// Load priority; smaller numbers load earlier
-			this.Order = 1;
+			this.Order = 5;
 		}
 
 		private Config.ConfigData config;
 		// HashSet<string> lynchables should only be modified by commands
 		// Actually using config.savedLynchables instead now
 		//private HashSet<string> lynchables = new HashSet<string>();
-		private HashSet<TSPlayer> lynchableRefs = new HashSet<TSPlayer>();
 
 		private void UpdateLynchRefs() {
-			this.lynchableRefs = new HashSet<TSPlayer>();
 			foreach (TSPlayer player in TShock.Players) {
 				if (null == player) {
 					continue;
 				}
 				if (this.config.savedLynchables.Contains(player.Name)) {
-					this.lynchableRefs.Add(player);
 					this.SetTeam(player);
 					this.SetPVP(player);
 				}
@@ -56,7 +49,6 @@ namespace MobJustice {
 			// Methods to perform when plugin is initializing i.e. hooks
 			ServerApi.Hooks.GameInitialize.Register(this, this.Game_Initialize);
 			ServerApi.Hooks.ServerJoin.Register(this, this.OnPlayerJoin);
-			ServerApi.Hooks.ServerLeave.Register(this, this.OnPlayerLeave);
 			ServerApi.Hooks.NetGetData.Register(this, this.OnGetNetData);
 			TShockAPI.Hooks.GeneralHooks.ReloadEvent += this.OnReload;
 			this.config = Config.GetConfigData();
@@ -68,12 +60,10 @@ namespace MobJustice {
 				// Methods to perform when the Plugin is disposed i.e. unhooks
 				ServerApi.Hooks.GameInitialize.Deregister(this, this.Game_Initialize);
 				ServerApi.Hooks.ServerJoin.Deregister(this, this.OnPlayerJoin);
-				ServerApi.Hooks.ServerLeave.Deregister(this, this.OnPlayerLeave);
 				ServerApi.Hooks.NetGetData.Deregister(this, this.OnGetNetData);
 				TShockAPI.Hooks.GeneralHooks.ReloadEvent -= this.OnReload;
 			}
 		}
-
 		private void OnReload(TShockAPI.Hooks.ReloadEventArgs args) {
 			this.config = Config.GetConfigData();
 			this.UpdateLynchRefs();
@@ -100,21 +90,11 @@ namespace MobJustice {
 				return;
 			}
 			if (this.config.savedLynchables.Contains(player.Name)) {
-				this.lynchableRefs.Add(player);
 				SetPVP(player);
 				TSPlayer.All.SendMessage(String.Format("{0}'s PvP has been forcefully turned on", player.Name), 255, 255, 255);
 			}
 		}
 
-		private void OnPlayerLeave(LeaveEventArgs args) {
-			TSPlayer player = TShock.Players[args.Who];
-			if (null == player) {
-				return;
-			}
-			if (!this.config.savedLynchables.Contains(player.Name)) {
-				this.lynchableRefs.Remove(player);
-			}
-		}
 
 		private void OnGetNetData(GetDataEventArgs args) {
 			PacketTypes packetType = args.MsgID;
@@ -122,7 +102,7 @@ namespace MobJustice {
 			if (null == player) {
 				return;
 			}
-			if (!this.lynchableRefs.Contains(player)) {
+			if (!this.config.savedLynchables.Contains(player.Name)) {
 				return;
 			}
 			switch (packetType) {
@@ -151,7 +131,6 @@ namespace MobJustice {
 			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.force" }, this.ForceLynch, "forcelynchable"));
 			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.list" }, this.LynchList, "listlynch"));
 		}
-
 		//Command added per request of Thiefman also known as Medium Roast Steak or Stealownz
 		public void LynchList(CommandArgs args) {
 			if (!this.config.pluginenabled) {
@@ -197,14 +176,12 @@ namespace MobJustice {
 			bool lynchable = this.config.savedLynchables.Contains(playerMatches[0].Name);
 			if (!lynchable) {
 				this.config.savedLynchables.Add(playerMatches[0].Name);
-				this.lynchableRefs.Add(playerMatches[0]);
 				TSPlayer.All.SendMessage(String.Format("{0}", this.config.lynchplayermessage.Replace("{PLAYER_NAME}", playerMatches[0].Name)), this.config.lynchplayermessagered, this.config.lynchplayermessagegreen, this.config.lynchplayermessageblue);
 				this.SetPVP(playerMatches[0]);
 				this.SetTeam(playerMatches[0]);
 			}
 			else {
 				this.config.savedLynchables.Remove(playerMatches[0].Name);
-				this.lynchableRefs.Remove(playerMatches[0]);
 				TSPlayer.All.SendMessage(String.Format("{0}", this.config.unlynchplayermessage.Replace("{PLAYER_NAME}", playerMatches[0].Name)), this.config.unlynchplayermessagered, this.config.unlynchplayermessagegreen, this.config.unlynchplayermessageblue);
 				playerMatches[0].TPlayer.hostile = false;
 				playerMatches[0].SendData(PacketTypes.TogglePvp, "", playerMatches[0].Index);
