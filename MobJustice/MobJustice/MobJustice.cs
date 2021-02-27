@@ -68,6 +68,22 @@ namespace MobJustice
 			UpdateLynchRefs();
 			args?.Player?.SendSuccessMessage("[MobJustice] Successfully reloaded config.");
 		}
+		private void SetTeam(TSPlayer player)
+		{
+			if (0 != player.Team)
+			{
+				player.SetTeam(0);
+			}
+		}
+		private void SetPVP(TSPlayer player)
+		{
+			if (!player.TPlayer.hostile)
+			{
+				player.TPlayer.hostile = true;
+				player.SendData(PacketTypes.TogglePvp, "", player.Index);
+				TSPlayer.All.SendData(PacketTypes.TogglePvp, "", player.Index);
+			}
+		}
 		private void OnPlayerJoin(JoinEventArgs args)
 		{
 			//HashSet<string> lynchableRefs should also be modified by login/logout, and should match lynchables (if name is in lynchables then the player with that name should be in lynchableRefs)
@@ -86,9 +102,15 @@ namespace MobJustice
 			lynchableRefs = new HashSet<TSPlayer>();
 			foreach (TSPlayer player in TShock.Players)
 			{
+				if (null == player)
+				{
+					continue;
+				}
 				if (config.savedLynchables.Contains(player.Name))
 				{
 					lynchableRefs.Add(player);
+					SetTeam(player);
+					SetPVP(player);
 				}
 			}
 		}
@@ -119,11 +141,11 @@ namespace MobJustice
 			switch (packetType)
 			{
 				case PacketTypes.TogglePvp:
-					player.TPlayer.hostile = true;
+					SetPVP(player);
 					player.SendMessage(String.Format("{0}", config.message), config.messagered, config.messagegreen, config.messageblue);
 					break;
 				case PacketTypes.ToggleParty:
-					player.SetTeam(0);
+					SetTeam(player);
 					player.SendMessage(String.Format("{0}", config.teamMessage), config.teamMessageRed, config.teamMessageGreen, config.teamMessageBlue);
 					break;
 			}
@@ -180,6 +202,8 @@ namespace MobJustice
 				config.savedLynchables.Add(playerMatches[0].Name);
 				lynchableRefs.Add(playerMatches[0]);
 				TSPlayer.All.SendMessage(String.Format("{0}", config.lynchplayermessage.Replace("{PLAYER_NAME}", playerMatches[0].Name)), config.lynchplayermessagered, config.lynchplayermessagegreen, config.lynchplayermessageblue);
+				SetPVP(playerMatches[0]);
+				SetTeam(playerMatches[0]);
 			}
 			else
 			{

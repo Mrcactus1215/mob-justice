@@ -36,7 +36,7 @@ namespace MobJustice
 
 		public static string ConfigFileName = @"tshock\Mob Justice\config.xml";
 
-		public static ConfigData GetConfigData()
+		public bool GetConfigData()
 		{
 			if (!File.Exists(ConfigFileName))
 			{
@@ -46,7 +46,7 @@ namespace MobJustice
 					XmlSerializer xs = new XmlSerializer(typeof(ConfigData));
 					ConfigData sxml = new ConfigData();
 					xs.Serialize(fs, sxml);
-					return sxml;
+					return true;
 				}
 			}
 			else
@@ -55,12 +55,14 @@ namespace MobJustice
 				{
 					XmlSerializer xs = new XmlSerializer(typeof(ConfigData));
 					ConfigData sc = (ConfigData)xs.Deserialize(fs);
-					return sc;
+					return true;
 				}
 			}
+			this.serializableLynchables.ForEach(currLynchable => config.savedLynchables.Add(currLynchable));
 		}
-		public static bool SaveConfigData(ConfigData config)
+		public bool SaveConfigData(ConfigData config)
 		{
+			config.serializableLynchables = config.savedLynchables.ToList();
 			if (!File.Exists(ConfigFileName)) return false;
 
 			using (FileStream fs = new FileStream(ConfigFileName, FileMode.Truncate))
@@ -91,7 +93,7 @@ namespace MobJustice
 			public byte lynchplayermessagered;
 			public byte lynchplayermessagegreen;
 			public byte lynchplayermessageblue;
-			//public List<string> savedLynchables = new List<string>();
+			public List<string> serializableLynchables = new List<string>();
 			public HashSet<string> savedLynchables;
 
 
@@ -115,6 +117,7 @@ namespace MobJustice
 				lynchplayermessagegreen = LYNCH_PLAYER_MESSAGE_GREEN;
 				lynchplayermessageblue = LYNCH_PLAYER_MESSAGE_BLUE;
 				savedLynchables = new HashSet<string>();
+				serializableLynchables = new List<string>();
 			}
 		}
 	}
