@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
@@ -13,7 +14,7 @@ namespace MobJustice
 
 	[ApiVersion(2, 1)]
 	public class MobJustice : TerrariaPlugin
-	{
+	{ 
 
 		public override string Author
 		{
@@ -101,7 +102,29 @@ namespace MobJustice
 			player.SendData(PacketTypes.TogglePvp, "", player.Index);
 			TSPlayer.All.SendData(PacketTypes.TogglePvp, "", player.Index);
 		}
+		private void MakeUnlynchable(string targetName)
+		{
+			playerLynchVotes.ForEach(kvpLyncher => kvpLyncher.Value.Remove(targetName));
+			votesCounter.Remove(targetName);
+		}
+		private void LynchExpiration(string targetName)
+		{
+			Thread.Sleep((int)this.config.lynchDuration * 1000);
+			var player = TSPlayer.FindByNameOrID(targetName);
+			MakeUnlynchable(targetName);
+			if (!this.config.savedLynchables.Contains(targetName))
+			{
+				TSPlayer.All.SendMessage(targetName + " is no longer lynchable", Color.Yellow);
+				RemovePVP(player[0]);
+			}
 
+		}
+		private void RemovePVP(TSPlayer player)
+		{
+			player.TPlayer.hostile = false;
+			player.SendData(PacketTypes.TogglePvp, "", player.Index);
+			TSPlayer.All.SendData(PacketTypes.TogglePvp, "", player.Index);
+		}
 		private void OnPlayerJoin(JoinEventArgs args)
 		{
 			// HashSet<string> lynchableRefs should also be modified by login/logout,
@@ -127,14 +150,28 @@ namespace MobJustice
 			playerLynchVotes.Remove(voterName);
 
 		}
+		public bool IsVictimLynchCooling(string targetName)
+		{
+			TimeSpan lynchCycleDuration = TimeSpan.FromSeconds(this.config.lynchDuration + this.config.lynchCooldown);
+			DateTime lastLynchTime = lynchableTimes.Get(targetName, DateTime.Now - lynchCycleDuration);
+			TimeSpan elapsedLynchTime = DateTime.Now - lastLynchTime;
+			return elapsedLynchTime >= TimeSpan.FromSeconds(this.config.lynchDuration) && !IsVictimLynchingCooled(targetName);
+		}
+		public bool IsVictimLynchingCooled(string targetName)
+		{
+			TimeSpan lynchCycleDuration = TimeSpan.FromSeconds(this.config.lynchDuration + this.config.lynchCooldown);
+			DateTime lastLynchTime = lynchableTimes.Get(targetName, DateTime.Now - lynchCycleDuration);
+			TimeSpan elapsedLynchTime = DateTime.Now - lastLynchTime;
+			return elapsedLynchTime > lynchCycleDuration;
+		}
 		bool IsVotedLynchTarget(string targetName)
 		{
 			int currVotes = votesCounter.Get(targetName, 0);
 			int currPlayercount = TShock.Utils.GetActivePlayerCount();
 			//TSPlayer.All.SendMessage("Target " + targetName + " has " + currVotes + " votes against them currently.", 255, 255, 0);
 			//TSPlayer.All.SendMessage("There are presently " + currPlayercount + " players connected.", 255, 255, 0);
-			bool enoughVotes = currVotes > currPlayercount / 2;
-			return enoughVotes;
+			bool enoughVotes = (3 <= currPlayercount) && (currVotes > currPlayercount / 2);
+			return enoughVotes && !IsVictimLynchCooling(targetName);
 		}
 		private void OnGetNetData(GetDataEventArgs args)
 		{
@@ -181,6 +218,7 @@ namespace MobJustice
 		}
 		Dictionary<string, HashSet<string>> playerLynchVotes = new Dictionary<string, HashSet<string>>();
 		Dictionary<string, int> votesCounter = new Dictionary<string, int>();
+		Dictionary<string, DateTime> lynchableTimes = new Dictionary<string, DateTime>();
 		// Command added per request of Thiefman also known as Medium Roast Steak or Stealownz
 		public void LynchList(CommandArgs args)
 		{
@@ -224,36 +262,49 @@ namespace MobJustice
 				return;
 			}
 			var playerMatches = TSPlayer.FindByNameOrID(args.Parameters[0]);
-			string targetName = playerMatches[0].Name;
 			if (0 == playerMatches.Count)
 			{
-				args.Player.SendErrorMessage("Invalid player! {0} not found", args.Parameters[0]);
+				args.Player.SendErrorMessage("Invalid player! {0} not found.", args.Parameters[0]);
 				return;
 			}
 			if (1 < playerMatches.Count)
 			{
-				args.Player.SendErrorMessage(String.Format("More than one match found: {0}", String.Join(", ", playerMatches.Select(currPlayer => currPlayer.Name))));
+				args.Player.SendErrorMessage(String.Format("More than one match found: {0}.", String.Join(", ", playerMatches.Select(currPlayer => currPlayer.Name))));
+				return;
+			}
+			string targetName = playerMatches[0].Name;
+			if (!IsVictimLynchingCooled(targetName))
+			{
+				args.Player.SendErrorMessage("You can't change your vote for someone once they become lynchable.");
 				return;
 			}
 			HashSet<string> currPlayerVotes = playerLynchVotes.Get(args.Player.Name, new HashSet<string>());
 			int currVoteCount = votesCounter.Get(targetName, 0);
+			bool wasVotedLynchable = IsVotedLynchTarget(targetName);
 			if (currPlayerVotes.Contains(targetName))
 			{
 				currPlayerVotes.Remove(targetName);
 				currVoteCount -= 1;
-				args.Player.SendSuccessMessage("Your vote for {0} to be lynched was removed", targetName);
+				args.Player.SendSuccessMessage("Your vote for {0} to be lynched was removed.", targetName);
 			}
 			else
 			{
 				currPlayerVotes.Add(targetName);
 				currVoteCount += 1;
-				args.Player.SendSuccessMessage("You voted for {0} to be lynched", targetName);
+				args.Player.SendSuccessMessage("You voted for {0} to be lynched.", targetName);
 			}
 			playerLynchVotes[args.Player.Name] = currPlayerVotes;
 			votesCounter[targetName] = currVoteCount;
-			if (IsVotedLynchTarget(playerMatches[0].Name))
+			bool isVotedLynchTarget = IsVotedLynchTarget(targetName);
+			if (isVotedLynchTarget)
 			{
-				TSPlayer.All.SendMessage(targetName + " has been voted to be lynched. You have 5 minutes", Color.Yellow);
+				if (!wasVotedLynchable)
+				{
+					lynchableTimes[targetName] = DateTime.Now;
+					Thread lynchExpirationThread = new Thread(() => LynchExpiration(targetName));
+					lynchExpirationThread.Start();
+					TSPlayer.All.SendMessage(targetName + " has been voted to be lynched. You have 5 minutes to lynch them as much as possible.", Color.Yellow);
+				}
 				this.SetPVP(playerMatches[0]);
 				this.SetTeam(playerMatches[0]);
 			}

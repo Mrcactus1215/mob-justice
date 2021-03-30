@@ -29,6 +29,8 @@ namespace MobJustice {
 		private const byte LYNCH_PLAYER_MESSAGE_RED = 255;
 		private const byte LYNCH_PLAYER_MESSAGE_GREEN = 255;
 		private const byte LYNCH_PLAYER_MESSAGE_BLUE = 0;
+		private const int LYNCH_DURATION = 5 * 60;
+		private const int LYNCH_COOLDOWN = 15 * 60;
 
 		#endregion
 
@@ -87,6 +89,8 @@ namespace MobJustice {
 			public byte lynchplayermessageblue;
 			public List<string> serializableLynchables = new List<string>();
 			public HashSet<string> savedLynchables;
+			public uint lynchDuration;
+			public uint lynchCooldown;
 
 
 			public ConfigData() {
@@ -109,6 +113,8 @@ namespace MobJustice {
 				this.lynchplayermessageblue = LYNCH_PLAYER_MESSAGE_BLUE;
 				this.savedLynchables = new HashSet<string>();
 				this.serializableLynchables = new List<string>();
+				this.lynchDuration = LYNCH_DURATION;
+				this.lynchCooldown = LYNCH_COOLDOWN;
 			}
 		}
 	}
