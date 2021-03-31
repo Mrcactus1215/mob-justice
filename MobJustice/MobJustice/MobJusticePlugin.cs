@@ -86,8 +86,6 @@ namespace MobJustice {
 		}
 
 		private void OnPlayerJoin(JoinEventArgs args) {
-			// HashSet<string> lynchableRefs should also be modified by login/logout,
-			// and should match lynchables (if name is in lynchables then the player with that name should be in lynchableRefs)
 			TSPlayer player = TShock.Players[args.Who];
 			if (null == player) {
 				return;
@@ -102,11 +100,7 @@ namespace MobJustice {
 		public void OnPlayerLeave(LeaveEventArgs args) {
 			// If a player leaves, they forfeit their lynch votes
 			string voterName = TShock.Players[args.Who].Name;
-			foreach (string targetName in this.mobJusticeEnforcer.playerLynchVotes.Get(voterName, new HashSet<string>())) {
-				this.mobJusticeEnforcer.votesCounter[targetName] -= 1;
-			}
-			this.mobJusticeEnforcer.playerLynchVotes.Remove(voterName);
-
+			this.mobJusticeEnforcer.lynchState.ForfeitVotes(voterName);
 		}
 
 		private void OnGetNetData(GetDataEventArgs args) {
@@ -124,7 +118,7 @@ namespace MobJustice {
 					TShockExtensions.TShockExtensions.SetPvP(player);
 					player.SendMessage(
 						String.Format("{0}", this.mobJusticeEnforcer.config.message),
-						this.mobJusticeEnforcer.config.messagered, this.mobJusticeEnforcer.config.messagegreen, this.mobJusticeEnforcer.config.messageblue
+						this.mobJusticeEnforcer.config.messageRed, this.mobJusticeEnforcer.config.messageGreen, this.mobJusticeEnforcer.config.messageBlue
 					);
 					args.Handled = true;
 					break;

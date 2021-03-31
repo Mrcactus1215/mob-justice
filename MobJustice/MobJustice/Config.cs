@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml;
 using System.Xml.Serialization;
-using System.Configuration;
 using System.IO;
 
 namespace MobJustice {
@@ -40,21 +35,21 @@ namespace MobJustice {
 			public bool pluginenabled;
 
 			public string message;
-			public byte messagered;
-			public byte messagegreen;
-			public byte messageblue;
+			public byte messageRed;
+			public byte messageGreen;
+			public byte messageBlue;
 			public string teamMessage;
 			public byte teamMessageRed;
 			public byte teamMessageGreen;
 			public byte teamMessageBlue;
-			public string unlynchplayermessage;
-			public byte unlynchPlayerMessageRed;
-			public byte unlynchPlayerMessageGreen;
-			public byte unlynchPlayerMessageBlue;
-			public string lynchplayermessage;
+			public string lynchPlayerMessage;
 			public byte lynchPlayerMessageRed;
 			public byte lynchPlayerMessageGreen;
 			public byte lynchPlayerMessageBlue;
+			public string unlynchPlayerMessage;
+			public byte unlynchPlayerMessageRed;
+			public byte unlynchPlayerMessageGreen;
+			public byte unlynchPlayerMessageBlue;
 			// XXX: Serialization seems to work for the HashSet, so do we even still need this List?
 			public List<string> serializableLynchables = new List<string>();
 			public HashSet<string> savedLynchables;
@@ -64,21 +59,21 @@ namespace MobJustice {
 			public ConfigData() {
 				this.pluginenabled = PLUGIN_ENABLED;
 				this.message = MESSAGE;
-				this.messagered = MESSAGE_RED;
-				this.messagegreen = MESSAGE_GREEN;
-				this.messageblue = MESSAGE_BLUE;
+				this.messageRed = MESSAGE_RED;
+				this.messageGreen = MESSAGE_GREEN;
+				this.messageBlue = MESSAGE_BLUE;
 				this.teamMessage = TEAM_MESSAGE;
 				this.teamMessageRed = TEAM_MESSAGE_RED;
 				this.teamMessageGreen = TEAM_MESSAGE_GREEN;
 				this.teamMessageBlue = TEAM_MESSAGE_BLUE;
-				this.unlynchplayermessage = UNLYNCH_PLAYER_MESSAGE;
-				this.unlynchPlayerMessageRed = UNLYNCH_PLAYER_MESSAGE_RED;
-				this.unlynchPlayerMessageGreen = UNLYNCH_PLAYER_MESSAGE_GREEN;
-				this.unlynchPlayerMessageBlue = UNLYNCH_PLAYER_MESSAGE_BLUE;
-				this.lynchplayermessage = LYNCH_PLAYER_MESSAGE;
+				this.lynchPlayerMessage = LYNCH_PLAYER_MESSAGE;
 				this.lynchPlayerMessageRed = LYNCH_PLAYER_MESSAGE_RED;
 				this.lynchPlayerMessageGreen = LYNCH_PLAYER_MESSAGE_GREEN;
 				this.lynchPlayerMessageBlue = LYNCH_PLAYER_MESSAGE_BLUE;
+				this.unlynchPlayerMessage = UNLYNCH_PLAYER_MESSAGE;
+				this.unlynchPlayerMessageRed = UNLYNCH_PLAYER_MESSAGE_RED;
+				this.unlynchPlayerMessageGreen = UNLYNCH_PLAYER_MESSAGE_GREEN;
+				this.unlynchPlayerMessageBlue = UNLYNCH_PLAYER_MESSAGE_BLUE;
 				this.savedLynchables = new HashSet<string>();
 				this.serializableLynchables = new List<string>();
 				this.lynchDuration = LYNCH_DURATION;
