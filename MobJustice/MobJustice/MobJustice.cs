@@ -227,7 +227,7 @@ namespace MobJustice
 			return enoughVotes && !this.IsVictimLynchCooling(targetName);
 		}
 
-		private void LynchExpiration(string targetName) {
+		private void LynchManagementThreadAction(string targetName) {
 			Thread.Sleep((int)this.config.lynchDuration * 1000);
 			var player = TSPlayer.FindByNameOrID(targetName);
 			this.RemoveLynchVotesFor(targetName);
@@ -236,6 +236,34 @@ namespace MobJustice
 				this.ClearPvP(player[0]);
 			}
 
+		}
+
+		public TSPlayer GetPlayerByName(string playerName) {
+			var playerMatches = TSPlayer.FindByNameOrID(playerName);
+			if (0 == playerMatches.Count) {
+				throw new ArgumentException(String.Format("Invalid player! {0} not found", playerName));
+			}
+			if (1 < playerMatches.Count) {
+				throw new ArgumentException(String.Format("More than one match found: {0}", String.Join(", ", playerMatches.Select(currPlayer => currPlayer.Name))));
+			}
+			return playerMatches[0];
+		}
+
+		// Negative means "infinite"
+		// 0 will make commands with no arguments refuse to function if arguments are supplied
+		public bool ArgCountCheck(CommandArgs args, int argCount, string usage) {
+			// Not enough arguments
+			int minArgs = (0 > argCount)? 1 : argCount;
+			if (minArgs > args.Parameters.Count) {
+				args.Player.SendErrorMessage("More arguments are required! Proper syntax:\n\t" + usage);
+				return false;
+			}
+			// Too many arguments
+			if (0 <= argCount && argCount < args.Parameters.Count) {
+				args.Player.SendErrorMessage("Too many arguments! Proper syntax:\n\t" + usage);
+				return false;
+			}
+			return true;
 		}
 
 		// ------------------------------
@@ -253,39 +281,39 @@ namespace MobJustice
 				return;
 			}
 
-			if (1 < args.Parameters.Count) {
-				args.Player.SendErrorMessage("Too many arguments! Proper syntax: /forcelynchable <name>");
-				return;
-			}
-			if (0 == args.Parameters.Count) {
-				args.Player.SendErrorMessage("Arguments required! Proper syntax: /forcelynchable <name>");
+			if (!this.ArgCountCheck(args, 1, "/forcelynchable targetName")) {
 				return;
 			}
 
-			var playerMatches = TSPlayer.FindByNameOrID(args.Parameters[0]);
-			if (0 == playerMatches.Count) {
-				args.Player.SendErrorMessage("Invalid player! {0} not found", args.Parameters[0]);
+			TSPlayer victimCandidate;
+			try {
+				victimCandidate = this.GetPlayerByName(args.Parameters[0]);
+			}
+			catch (ArgumentException ae) {
+				args.Player.SendErrorMessage(ae.Message);
 				return;
 			}
-			if (1 < playerMatches.Count) {
-				args.Player.SendErrorMessage(String.Format("More than one match found: {0}", String.Join(", ", playerMatches.Select(currPlayer => currPlayer.Name))));
-				return;
-			}
-			bool lynchable = this.config.savedLynchables.Contains(playerMatches[0].Name);
-			bool isVotedLynchable = this.IsVotedLynchTarget(playerMatches[0].Name);
+
+			string targetName = victimCandidate.Name;
+			bool lynchable = this.config.savedLynchables.Contains(targetName);
+			bool isVotedLynchable = this.IsVotedLynchTarget(targetName);
 			if (!lynchable) {
-				this.config.savedLynchables.Add(playerMatches[0].Name);
-				TSPlayer.All.SendMessage(String.Format("{0}", this.config.lynchplayermessage.Replace("{PLAYER_NAME}", playerMatches[0].Name)), this.config.lynchplayermessagered, this.config.lynchplayermessagegreen, this.config.lynchplayermessageblue);
-				this.SetPvP(playerMatches[0]);
-				this.SetTeam(playerMatches[0]);
+				this.config.savedLynchables.Add(targetName);
+				TSPlayer.All.SendMessage(
+					String.Format("{0}", this.config.lynchplayermessage.Replace("{PLAYER_NAME}", targetName)),
+					this.config.lynchPlayerMessageRed, this.config.lynchPlayerMessageGreen, this.config.lynchPlayerMessageBlue
+				);
+				this.SetPvP(victimCandidate);
+				this.SetTeam(victimCandidate);
 			}
 			else {
-				this.config.savedLynchables.Remove(playerMatches[0].Name);
-				TSPlayer.All.SendMessage(String.Format("{0}", this.config.unlynchplayermessage.Replace("{PLAYER_NAME}", playerMatches[0].Name)), this.config.unlynchplayermessagered, this.config.unlynchplayermessagegreen, this.config.unlynchplayermessageblue);
+				this.config.savedLynchables.Remove(targetName);
+				TSPlayer.All.SendMessage(
+					String.Format("{0}", this.config.unlynchplayermessage.Replace("{PLAYER_NAME}", targetName)),
+					this.config.unlynchPlayerMessageRed, this.config.unlynchPlayerMessageGreen, this.config.unlynchPlayerMessageBlue
+				);
 				if (!isVotedLynchable) {
-					playerMatches[0].TPlayer.hostile = false;
-					playerMatches[0].SendData(PacketTypes.TogglePvp, "", playerMatches[0].Index);
-					TSPlayer.All.SendData(PacketTypes.TogglePvp, "", playerMatches[0].Index);
+					this.ClearPvP(victimCandidate);
 				}
 			}
 			Config.SaveConfigData(this.config);
@@ -298,33 +326,27 @@ namespace MobJustice
 			{
 				return;
 			}
+
 			if (!args.Player.IsLoggedIn)
 			{
 				args.Player.SendErrorMessage("You need to be logged in to do that!");
 				return;
 			}
-			if (1 < args.Parameters.Count)
-			{
-				args.Player.SendErrorMessage("Too many arguments! Proper syntax: /lynch <name>");
+
+			if (!this.ArgCountCheck(args, 1, "/lynch targetName")) {
 				return;
 			}
-			if (0 == args.Parameters.Count)
-			{
-				args.Player.SendErrorMessage("Arguments required! Proper syntax: /lynch <name>");
+
+			TSPlayer victimCandidate;
+			try {
+				victimCandidate = this.GetPlayerByName(args.Parameters[0]);
+			}
+			catch (ArgumentException ae) {
+				args.Player.SendErrorMessage(ae.Message);
 				return;
 			}
-			var playerMatches = TSPlayer.FindByNameOrID(args.Parameters[0]);
-			if (0 == playerMatches.Count)
-			{
-				args.Player.SendErrorMessage("Invalid player! {0} not found.", args.Parameters[0]);
-				return;
-			}
-			if (1 < playerMatches.Count)
-			{
-				args.Player.SendErrorMessage(String.Format("More than one match found: {0}.", String.Join(", ", playerMatches.Select(currPlayer => currPlayer.Name))));
-				return;
-			}
-			string targetName = playerMatches[0].Name;
+
+			string targetName = victimCandidate.Name;
 			if (!this.IsVictimLynchingCooled(targetName))
 			{
 				args.Player.SendErrorMessage("You can't change your vote for someone once they become lynchable.");
@@ -353,12 +375,12 @@ namespace MobJustice
 				if (!wasVotedLynchable)
 				{
 					this.lynchableTimes[targetName] = DateTime.Now;
-					Thread lynchExpirationThread = new Thread(() => this.LynchExpiration(targetName));
+					Thread lynchExpirationThread = new Thread(() => this.LynchManagementThreadAction(targetName));
 					lynchExpirationThread.Start();
 					TSPlayer.All.SendMessage(targetName + " has been voted to be lynched. You have " + this.config.lynchDuration + " seconds to lynch them as much as possible.", Color.Yellow);
 				}
-				this.SetPvP(playerMatches[0]);
-				this.SetTeam(playerMatches[0]);
+				this.SetPvP(victimCandidate);
+				this.SetTeam(victimCandidate);
 			}
 		}
 
@@ -368,6 +390,7 @@ namespace MobJustice
 			if (!this.config.pluginenabled) {
 				return;
 			}
+
 			args.Player.SendMessage(
 				String.Format("Players currently forced to be lynchable: {0}",
 					String.Join(", ", this.config.savedLynchables.ToList())
@@ -378,6 +401,10 @@ namespace MobJustice
 
 		// Function for command: /lynchvotelist
 		public void LynchVoteList(CommandArgs args) {
+			if (!this.config.pluginenabled) {
+				return;
+			}
+
 			string victimList = String.Format("Victims: {0}", String.Join(", ", this.votesCounter.Where(kvpVictim => 0 != kvpVictim.Value).Select(kvpVictim => kvpVictim.Key + ": " + kvpVictim.Value)));
 			string voterList = String.Format("Lynchers: {0}", String.Join(", ", this.playerLynchVotes.Where(kvpLyncher => 0 != kvpLyncher.Value.Count).Select(kvpLyncher => kvpLyncher.Key + ": " + kvpLyncher.Value.Count)));
 			args.Player.SendMessage(String.Format("{0}", victimList), 255, 255, 0);
