@@ -71,9 +71,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="TShockExtensions.cs" />
+    <Compile Include="MobJustice.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Config.cs" />
-    <Compile Include="MobJustice.cs" />
+    <Compile Include="MobJusticePlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
