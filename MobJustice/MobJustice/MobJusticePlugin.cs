@@ -7,34 +7,28 @@ using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
 
-namespace MobJustice
-{
+namespace MobJustice {
 	[ApiVersion(2, 1)]
-	public class MobJusticePlugin : TerrariaPlugin
-	{
+	public class MobJusticePlugin : TerrariaPlugin {
 		// ------------------------------
 		// Meta data
 		// ------------------------------
 
-		public override string Author
-		{
+		public override string Author {
 			get { return "Hextator and MrCactus"; }
 		}
 
-		public override string Description
-		{
+		public override string Description {
 			get { return "Plugin that allows the players to lynch other players"; }
 		}
 
-		public override string Name
-		{
+		public override string Name {
 			get { return "Mob Justice"; }
 		}
 
 		public override Version Version => new Version(1, 1, 0, 0);
 
-		public MobJusticePlugin(Main game) : base(game)
-		{
+		public MobJusticePlugin(Main game) : base(game) {
 			// Load priority; smaller numbers load earlier
 			this.Order = 5;
 		}
@@ -49,8 +43,7 @@ namespace MobJustice
 		// Init and unload
 		// ------------------------------
 
-		public override void Initialize()
-		{
+		public override void Initialize() {
 			// Methods to perform when plugin is initializing i.e. hooks
 			ServerApi.Hooks.GameInitialize.Register(this, this.Game_Initialize);
 			TShockAPI.Hooks.GeneralHooks.ReloadEvent += this.OnReload;
@@ -63,10 +56,8 @@ namespace MobJustice
 			this.mobJusticeEnforcer.UpdateLynchRefs();
 		}
 
-		protected override void Dispose(bool disposing)
-		{
-			if (disposing)
-			{
+		protected override void Dispose(bool disposing) {
+			if (disposing) {
 				// Methods to perform when the Plugin is disposed i.e. unhooks
 				ServerApi.Hooks.GameInitialize.Deregister(this, this.Game_Initialize);
 				TShockAPI.Hooks.GeneralHooks.ReloadEvent -= this.OnReload;

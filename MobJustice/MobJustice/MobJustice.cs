@@ -69,7 +69,7 @@ namespace MobJustice {
 			int currPlayercount = TShock.Utils.GetActivePlayerCount();
 			//TSPlayer.All.SendMessage("Target " + targetName + " has " + currVotes + " votes against them currently.", 255, 255, 0);
 			//TSPlayer.All.SendMessage("There are presently " + currPlayercount + " players connected.", 255, 255, 0);
-			bool enoughVotes = (3 <= currPlayercount) && (currVotes > currPlayercount / 2);
+			bool enoughVotes = (3 <= currPlayercount) && (currVotes > currPlayercount/2);
 			return enoughVotes && !this.IsVictimLynchCooling(targetName);
 		}
 
