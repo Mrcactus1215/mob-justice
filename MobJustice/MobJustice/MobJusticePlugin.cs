@@ -31,6 +31,8 @@ namespace MobJustice
 			get { return "Mob Justice"; }
 		}
 
+		public override Version Version => new Version(1, 1, 0, 0);
+
 		public MobJusticePlugin(Main game) : base(game)
 		{
 			// Load priority; smaller numbers load earlier
@@ -81,8 +83,8 @@ namespace MobJustice
 		private void Game_Initialize(EventArgs args) {
 			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.force" }, this.mobJusticeEnforcer.ForceLynch, "forcelynchable"));
 			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.lynch" }, this.mobJusticeEnforcer.VoteLynch, "lynch"));
-			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.list" }, this.mobJusticeEnforcer.LynchList, "lynchlist"));
-			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.listvotes" }, this.mobJusticeEnforcer.LynchVoteList, "lynchvotelist"));
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.list" }, this.mobJusticeEnforcer.ReportForcedLynches, "showforcedlynches"));
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.listvotes" }, this.mobJusticeEnforcer.ReportLynchVoteStates, "showlynchvotes"));
 			// TODO: Make /lynch display all commands but only display the commands the being that ran the command has permissions for
 		}
 
@@ -101,7 +103,7 @@ namespace MobJustice
 			}
 			// TODO: Also make them lynchable if they rejoin while voted for
 			if (this.mobJusticeEnforcer.config.savedLynchables.Contains(player.Name)) {
-				this.mobJusticeEnforcer.SetPvP(player);
+				TShockExtensions.TShockExtensions.SetPvP(player);
 				TSPlayer.All.SendMessage(String.Format("{0}'s PvP has been forcefully turned on", player.Name), 255, 255, 255);
 			}
 		}
@@ -128,7 +130,7 @@ namespace MobJustice
 			// Player is lynchable; override attempts to set PvP or team state accordingly
 			switch (packetType) {
 				case PacketTypes.TogglePvp:
-					this.mobJusticeEnforcer.SetPvP(player);
+					TShockExtensions.TShockExtensions.SetPvP(player);
 					player.SendMessage(
 						String.Format("{0}", this.mobJusticeEnforcer.config.message),
 						this.mobJusticeEnforcer.config.messagered, this.mobJusticeEnforcer.config.messagegreen, this.mobJusticeEnforcer.config.messageblue
@@ -137,7 +139,7 @@ namespace MobJustice
 					break;
 				// This packet is stupidly weird and bad. Why would it be called PlayerTeam when there's a packet called ToggleParty that doesn't work the way that the name suggests..
 				case PacketTypes.PlayerTeam:
-					this.mobJusticeEnforcer.SetTeam(player);
+					TShockExtensions.TShockExtensions.SetTeam(player);
 					player.SendMessage(
 						String.Format("{0}", this.mobJusticeEnforcer.config.teamMessage),
 						this.mobJusticeEnforcer.config.teamMessageRed, this.mobJusticeEnforcer.config.teamMessageGreen, this.mobJusticeEnforcer.config.teamMessageBlue

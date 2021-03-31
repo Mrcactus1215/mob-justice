@@ -37,30 +37,10 @@ namespace MobJustice {
 					continue;
 				}
 				if (this.config.savedLynchables.Contains(player.Name) || this.IsVotedLynchTarget(player.Name)) {
-					this.SetTeam(player);
-					this.SetPvP(player);
+					TShockExtensions.TShockExtensions.SetTeam(player);
+					TShockExtensions.TShockExtensions.SetPvP(player);
 				}
 			}
-		}
-
-		private void SendDataHelper(TSPlayer player, PacketTypes packetType) {
-			player.SendData(packetType, "", player.Index);
-			TSPlayer.All.SendData(packetType, "", player.Index);
-		}
-
-		public void SetPvP(TSPlayer player) {
-			player.TPlayer.hostile = true;
-			this.SendDataHelper(player, PacketTypes.TogglePvp);
-		}
-
-		public void ClearPvP(TSPlayer player) {
-			player.TPlayer.hostile = false;
-			this.SendDataHelper(player, PacketTypes.TogglePvp);
-		}
-
-		public void SetTeam(TSPlayer player) {
-			player.SetTeam(0);
-			this.SendDataHelper(player, PacketTypes.ToggleParty);
 		}
 
 		public void RemoveLynchVotesFor(string targetName) {
@@ -95,13 +75,20 @@ namespace MobJustice {
 
 		private void LynchManagementThreadAction(string targetName) {
 			Thread.Sleep((int)this.config.lynchDuration * 1000);
-			var player = TSPlayer.FindByNameOrID(targetName);
+
+			TSPlayer victimCandidate = null;
+			try {
+				victimCandidate = TShockExtensions.TShockExtensions.GetPlayerByName(targetName);
+			}
+			catch (ArgumentException) { }
+
 			this.RemoveLynchVotesFor(targetName);
 			if (!this.config.savedLynchables.Contains(targetName)) {
 				TSPlayer.All.SendMessage(targetName + " is no longer lynchable", Color.Yellow);
-				this.ClearPvP(player[0]);
+				if (null != victimCandidate) {
+					TShockExtensions.TShockExtensions.ClearPvP(victimCandidate);
+				}
 			}
-
 		}
 
 		// Negative means "infinite"
@@ -158,8 +145,8 @@ namespace MobJustice {
 					String.Format("{0}", this.config.lynchplayermessage.Replace("{PLAYER_NAME}", targetName)),
 					this.config.lynchPlayerMessageRed, this.config.lynchPlayerMessageGreen, this.config.lynchPlayerMessageBlue
 				);
-				this.SetPvP(victimCandidate);
-				this.SetTeam(victimCandidate);
+				TShockExtensions.TShockExtensions.SetPvP(victimCandidate);
+				TShockExtensions.TShockExtensions.SetTeam(victimCandidate);
 			}
 			else {
 				this.config.savedLynchables.Remove(targetName);
@@ -168,7 +155,7 @@ namespace MobJustice {
 					this.config.unlynchPlayerMessageRed, this.config.unlynchPlayerMessageGreen, this.config.unlynchPlayerMessageBlue
 				);
 				if (!isVotedLynchable) {
-					this.ClearPvP(victimCandidate);
+					TShockExtensions.TShockExtensions.ClearPvP(victimCandidate);
 				}
 			}
 			Config.SaveConfigData(this.config);
@@ -226,14 +213,14 @@ namespace MobJustice {
 					lynchExpirationThread.Start();
 					TSPlayer.All.SendMessage(targetName + " has been voted to be lynched. You have " + this.config.lynchDuration + " seconds to lynch them as much as possible.", Color.Yellow);
 				}
-				this.SetPvP(victimCandidate);
-				this.SetTeam(victimCandidate);
+				TShockExtensions.TShockExtensions.SetPvP(victimCandidate);
+				TShockExtensions.TShockExtensions.SetTeam(victimCandidate);
 			}
 		}
 
-		// Function for command: /lynchlist
+		// Function for command: /showforcedlynches
 		// Command added per request of Thiefman also known as Medium Roast Steak or Stealownz
-		public void LynchList(CommandArgs args) {
+		public void ReportForcedLynches(CommandArgs args) {
 			if (!this.config.pluginenabled) {
 				return;
 			}
@@ -246,8 +233,8 @@ namespace MobJustice {
 			);
 		}
 
-		// Function for command: /lynchvotelist
-		public void LynchVoteList(CommandArgs args) {
+		// Function for command: /showlynchvotes
+		public void ReportLynchVoteStates(CommandArgs args) {
 			if (!this.config.pluginenabled) {
 				return;
 			}

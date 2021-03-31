@@ -15,5 +15,45 @@ namespace TShockExtensions {
 			}
 			return playerMatches[0];
 		}
+
+		public static void SendDataHelper(TSPlayer player, PacketTypes packetType) {
+			try {
+				player.SendData(packetType, "", player.Index);
+			}
+			catch (Exception e) {
+				Console.WriteLine("TShockExtensions.SendDataHelper exception: " + e.Message);
+			}
+			TSPlayer.All.SendData(packetType, "", player.Index);
+		}
+
+		public static void SetPvP(TSPlayer player) {
+			try {
+				player.TPlayer.hostile = true;
+			}
+			catch (Exception e) {
+				Console.WriteLine("TShockExtensions.SetPvP exception: " + e.Message);
+			}
+			SendDataHelper(player, PacketTypes.TogglePvp);
+		}
+
+		public static void ClearPvP(TSPlayer player) {
+			try {
+				player.TPlayer.hostile = false;
+			}
+			catch (Exception e) {
+				Console.WriteLine("TShockExtensions.ClearPvP exception: " + e.Message);
+			}
+			SendDataHelper(player, PacketTypes.TogglePvp);
+		}
+
+		public static void SetTeam(TSPlayer player) {
+			try {
+				player.SetTeam(0);
+			}
+			catch (Exception e) {
+				Console.WriteLine("TShockExtensions.SetTeam exception: " + e.Message);
+			}
+			SendDataHelper(player, PacketTypes.ToggleParty);
+		}
 	}
 }
