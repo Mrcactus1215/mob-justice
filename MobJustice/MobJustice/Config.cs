@@ -24,6 +24,7 @@ namespace MobJustice {
 		private const byte LYNCH_PLAYER_MESSAGE_RED = 255;
 		private const byte LYNCH_PLAYER_MESSAGE_GREEN = 255;
 		private const byte LYNCH_PLAYER_MESSAGE_BLUE = 0;
+		private const double LYNCHING_PLAYERS_RATIO = 0.5;
 		private const int MIN_PLAYERS_FOR_LYNCH = 2;
 		private const int LYNCH_DURATION = 5 * 60;
 		private const int LYNCH_COOLDOWN = 15 * 60;
@@ -54,6 +55,7 @@ namespace MobJustice {
 			// XXX: Serialization seems to work for the HashSet, so do we even still need this List?
 			public List<string> serializableLynchables = new List<string>();
 			public HashSet<string> savedLynchables;
+			public double lynchingPlayersRatio;
 			public uint minPlayersForLynch;
 			public uint lynchDuration;
 			public uint lynchCooldown;
@@ -78,6 +80,7 @@ namespace MobJustice {
 				this.unlynchPlayerMessageBlue = UNLYNCH_PLAYER_MESSAGE_BLUE;
 				this.savedLynchables = new HashSet<string>();
 				this.serializableLynchables = new List<string>();
+				this.lynchingPlayersRatio = LYNCHING_PLAYERS_RATIO;
 				this.minPlayersForLynch = MIN_PLAYERS_FOR_LYNCH;
 				this.lynchDuration = LYNCH_DURATION;
 				this.lynchCooldown = LYNCH_COOLDOWN;
