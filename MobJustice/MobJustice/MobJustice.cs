@@ -89,6 +89,11 @@ namespace MobJustice {
 			return LynchVoteResult.VotedProtect;
 		}
 
+		private void UnsafeRemoveLynchVotesFor(string targetName) {
+			this.playerLynchVotes.ForEach(kvpLyncher => kvpLyncher.Value.Remove(targetName));
+			this.votesCounter.Remove(targetName);
+		}
+
 		// All of the methods here that are not marked with "Unsafe"
 		// need to have locks implemented for thread safety
 		// As such, they also MUST NOT call each other
@@ -107,6 +112,7 @@ namespace MobJustice {
 				LynchState newState;
 				switch (oldState) {
 					case LynchState.Lynchable:
+						this.UnsafeRemoveLynchVotesFor(targetName);
 						newState = LynchState.Protected;
 						break;
 					case LynchState.Protected:
@@ -153,13 +159,6 @@ namespace MobJustice {
 			lock (this.lockObj) {
 				this.UnsafeGetPlayerVotes(voterName).ForEach(targetName => this.votesCounter[targetName] -= 1);
 				this.playerLynchVotes.Remove(voterName);
-			}
-		}
-
-		public void RemoveLynchVotesFor(string targetName) {
-			lock (this.lockObj) {
-				this.playerLynchVotes.ForEach(kvpLyncher => kvpLyncher.Value.Remove(targetName));
-				this.votesCounter.Remove(targetName);
 			}
 		}
 
@@ -232,7 +231,6 @@ namespace MobJustice {
 			}
 			catch (ArgumentException) { }
 
-			this.lynchState.RemoveLynchVotesFor(targetName);
 			if (!this.config.IsForcedLynchable(targetName)) {
 				if (null != victimCandidate) {
 					TShockExtensions.TShockExtensions.DisablePvP(victimCandidate);
