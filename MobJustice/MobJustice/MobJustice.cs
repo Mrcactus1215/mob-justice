@@ -41,10 +41,6 @@ namespace MobJustice {
 			return this.playerLynchStates.Get(targetName, LynchState.Lynchable);
 		}
 
-		public bool UnsafeIsVotedLynchTarget(string targetName) {
-			return LynchState.Lynchable == this.UnsafeGetLynchState(targetName);
-		}
-
 		private LynchState UnsafeSetLynchState(string targetName, LynchState newState) {
 			return this.playerLynchStates[targetName] = newState;
 		}
@@ -96,6 +92,14 @@ namespace MobJustice {
 		// All of the methods here that are not marked with "Unsafe"
 		// need to have locks implemented for thread safety
 		// As such, they also MUST NOT call each other
+
+		public bool IsVotedLynchTarget(string targetName) {
+			bool output;
+			lock (this.lockObj) {
+				output = LynchState.Lynchable == this.UnsafeGetLynchState(targetName);
+			}
+			return output;
+		}
 
 		public void AdvanceLynchState(string targetName) {
 			lock (this.lockObj) {
@@ -191,7 +195,7 @@ namespace MobJustice {
 		}
 
 		public bool IsLynchable(string targetName) {
-			return this.config.savedLynchables.Contains(targetName) || this.lynchState.UnsafeIsVotedLynchTarget(targetName);
+			return this.config.IsForcedLynchable(targetName) || this.lynchState.IsVotedLynchTarget(targetName);
 		}
 
 		public void UpdateForcedTeamAndPvP() {
@@ -224,29 +228,12 @@ namespace MobJustice {
 			catch (ArgumentException) { }
 
 			this.lynchState.RemoveLynchVotesFor(targetName);
-			if (!this.config.savedLynchables.Contains(targetName)) {
+			if (!this.config.IsForcedLynchable(targetName)) {
 				TSPlayer.All.SendMessage(targetName + " is no longer lynchable", Color.Yellow);
 				if (null != victimCandidate) {
 					TShockExtensions.TShockExtensions.ClearPvP(victimCandidate);
 				}
 			}
-		}
-
-		// Negative means "infinite"
-		// 0 will make commands with no arguments refuse to function if arguments are supplied
-		public bool ArgCountCheck(CommandArgs args, int argCount, string usage) {
-			// Not enough arguments
-			int minArgs = (0 > argCount) ? 1 : argCount;
-			if (minArgs > args.Parameters.Count) {
-				args.Player.SendErrorMessage("More arguments are required! Proper syntax:\n\t" + usage);
-				return false;
-			}
-			// Too many arguments
-			if (0 <= argCount && argCount < args.Parameters.Count) {
-				args.Player.SendErrorMessage("Too many arguments! Proper syntax:\n\t" + usage);
-				return false;
-			}
-			return true;
 		}
 
 		// ------------------------------
@@ -264,7 +251,7 @@ namespace MobJustice {
 				return;
 			}
 
-			if (!this.ArgCountCheck(args, 1, "/forcelynchable targetName")) {
+			if (!TShockExtensions.TShockExtensions.ArgCountCheck(args, 1, "/forcelynchable targetName")) {
 				return;
 			}
 
@@ -278,10 +265,9 @@ namespace MobJustice {
 			}
 
 			string targetName = victimCandidate.Name;
-			bool lynchable = this.config.savedLynchables.Contains(targetName);
-			bool isVotedLynchable = this.lynchState.UnsafeIsVotedLynchTarget(targetName);
-			if (!lynchable) {
-				this.config.savedLynchables.Add(targetName);
+			LynchVoteResult forceLynchResult = this.config.ToggleLynchForce(targetName);
+			bool isVotedLynchable = this.lynchState.IsVotedLynchTarget(targetName);
+			if (LynchVoteResult.StartedLynch == forceLynchResult) {
 				TSPlayer.All.SendMessage(
 					String.Format("{0}", this.config.lynchPlayerMessage.Replace("{PLAYER_NAME}", targetName)),
 					this.config.lynchPlayerMessageRed, this.config.lynchPlayerMessageGreen, this.config.lynchPlayerMessageBlue
@@ -289,8 +275,7 @@ namespace MobJustice {
 				TShockExtensions.TShockExtensions.SetPvP(victimCandidate);
 				TShockExtensions.TShockExtensions.SetTeam(victimCandidate);
 			}
-			else {
-				this.config.savedLynchables.Remove(targetName);
+			else if (LynchVoteResult.VotedProtect == forceLynchResult) {
 				TSPlayer.All.SendMessage(
 					String.Format("{0}", this.config.unlynchPlayerMessage.Replace("{PLAYER_NAME}", targetName)),
 					this.config.unlynchPlayerMessageRed, this.config.unlynchPlayerMessageGreen, this.config.unlynchPlayerMessageBlue
@@ -315,7 +300,7 @@ namespace MobJustice {
 				return;
 			}
 
-			if (!this.ArgCountCheck(args, 1, "/lynch targetName")) {
+			if (!TShockExtensions.TShockExtensions.ArgCountCheck(args, 1, "/lynch targetName")) {
 				return;
 			}
 
@@ -357,7 +342,7 @@ namespace MobJustice {
 
 			args.Player.SendMessage(
 				String.Format("Players currently forced to be lynchable: {0}",
-					String.Join(", ", this.config.savedLynchables.ToList())
+					String.Join(", ", this.config.CurrentForcedLynchables())
 				),
 				255, 255, 0
 			);

@@ -5,6 +5,23 @@ using TShockAPI;
 
 namespace TShockExtensions {
 	public static class TShockExtensions {
+		// Negative means "infinite"
+		// 0 will make commands with no arguments refuse to function if arguments are supplied
+		public static bool ArgCountCheck(CommandArgs args, int argCount, string usage) {
+			// Not enough arguments
+			int minArgs = (0 > argCount) ? 1 : argCount;
+			if (minArgs > args.Parameters.Count) {
+				args.Player.SendErrorMessage("More arguments are required! Proper syntax:\n\t" + usage);
+				return false;
+			}
+			// Too many arguments
+			if (0 <= argCount && argCount < args.Parameters.Count) {
+				args.Player.SendErrorMessage("Too many arguments! Proper syntax:\n\t" + usage);
+				return false;
+			}
+			return true;
+		}
+
 		public static TSPlayer GetPlayerByName(string playerName) {
 			var playerMatches = TSPlayer.FindByNameOrID(playerName);
 			if (0 == playerMatches.Count) {

@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Serialization;
 using System.IO;
 
 namespace MobJustice {
-	public class Config {
+	public static class Config {
 		#region Defaults
 
 		private const bool PLUGIN_ENABLED = true;
@@ -33,57 +34,74 @@ namespace MobJustice {
 
 		public static string ConfigFileName = @"tshock\Mob Justice\config.xml";
 
+		[Serializable()]
 		public class ConfigData {
-			public bool pluginenabled;
-
-			public string message;
-			public byte messageRed;
-			public byte messageGreen;
-			public byte messageBlue;
-			public string teamMessage;
-			public byte teamMessageRed;
-			public byte teamMessageGreen;
-			public byte teamMessageBlue;
-			public string lynchPlayerMessage;
-			public byte lynchPlayerMessageRed;
-			public byte lynchPlayerMessageGreen;
-			public byte lynchPlayerMessageBlue;
-			public string unlynchPlayerMessage;
-			public byte unlynchPlayerMessageRed;
-			public byte unlynchPlayerMessageGreen;
-			public byte unlynchPlayerMessageBlue;
-			// XXX: Serialization seems to work for the HashSet, so do we even still need this List?
+			public bool pluginenabled = PLUGIN_ENABLED;
+			public string message = MESSAGE;
+			public byte messageRed = MESSAGE_RED;
+			public byte messageGreen = MESSAGE_GREEN;
+			public byte messageBlue = MESSAGE_BLUE;
+			public string teamMessage = TEAM_MESSAGE;
+			public byte teamMessageRed = TEAM_MESSAGE_RED;
+			public byte teamMessageGreen = TEAM_MESSAGE_GREEN;
+			public byte teamMessageBlue = TEAM_MESSAGE_BLUE;
+			public string lynchPlayerMessage = LYNCH_PLAYER_MESSAGE;
+			public byte lynchPlayerMessageRed = LYNCH_PLAYER_MESSAGE_RED;
+			public byte lynchPlayerMessageGreen = LYNCH_PLAYER_MESSAGE_GREEN;
+			public byte lynchPlayerMessageBlue = LYNCH_PLAYER_MESSAGE_BLUE;
+			public string unlynchPlayerMessage = UNLYNCH_PLAYER_MESSAGE;
+			public byte unlynchPlayerMessageRed = UNLYNCH_PLAYER_MESSAGE_RED;
+			public byte unlynchPlayerMessageGreen = UNLYNCH_PLAYER_MESSAGE_GREEN;
+			public byte unlynchPlayerMessageBlue = UNLYNCH_PLAYER_MESSAGE_BLUE;
+			public double lynchingPlayersRatio = LYNCHING_PLAYERS_RATIO;
+			public uint minPlayersForLynch = MIN_PLAYERS_FOR_LYNCH;
+			public uint lynchDuration = LYNCH_DURATION;
+			public uint lynchCooldown = LYNCH_COOLDOWN;
+			[NonSerialized()]
+			private readonly object forcedLynchablesLockObj = new object();
 			public List<string> serializableLynchables = new List<string>();
-			public HashSet<string> savedLynchables;
-			public double lynchingPlayersRatio;
-			public uint minPlayersForLynch;
-			public uint lynchDuration;
-			public uint lynchCooldown;
+			[NonSerialized()]
+			private HashSet<string> savedLynchables = new HashSet<string>();
 
-			public ConfigData() {
-				this.pluginenabled = PLUGIN_ENABLED;
-				this.message = MESSAGE;
-				this.messageRed = MESSAGE_RED;
-				this.messageGreen = MESSAGE_GREEN;
-				this.messageBlue = MESSAGE_BLUE;
-				this.teamMessage = TEAM_MESSAGE;
-				this.teamMessageRed = TEAM_MESSAGE_RED;
-				this.teamMessageGreen = TEAM_MESSAGE_GREEN;
-				this.teamMessageBlue = TEAM_MESSAGE_BLUE;
-				this.lynchPlayerMessage = LYNCH_PLAYER_MESSAGE;
-				this.lynchPlayerMessageRed = LYNCH_PLAYER_MESSAGE_RED;
-				this.lynchPlayerMessageGreen = LYNCH_PLAYER_MESSAGE_GREEN;
-				this.lynchPlayerMessageBlue = LYNCH_PLAYER_MESSAGE_BLUE;
-				this.unlynchPlayerMessage = UNLYNCH_PLAYER_MESSAGE;
-				this.unlynchPlayerMessageRed = UNLYNCH_PLAYER_MESSAGE_RED;
-				this.unlynchPlayerMessageGreen = UNLYNCH_PLAYER_MESSAGE_GREEN;
-				this.unlynchPlayerMessageBlue = UNLYNCH_PLAYER_MESSAGE_BLUE;
-				this.savedLynchables = new HashSet<string>();
-				this.serializableLynchables = new List<string>();
-				this.lynchingPlayersRatio = LYNCHING_PLAYERS_RATIO;
-				this.minPlayersForLynch = MIN_PLAYERS_FOR_LYNCH;
-				this.lynchDuration = LYNCH_DURATION;
-				this.lynchCooldown = LYNCH_COOLDOWN;
+			public List<string> CurrentForcedLynchables() {
+				List<string> output;
+				lock (this.forcedLynchablesLockObj) {
+					output = this.savedLynchables.ToList();
+				}
+				return output;
+			}
+
+			public void UpdateLynchablesFromSerialized() {
+				lock (this.forcedLynchablesLockObj) {
+					this.serializableLynchables.ForEach(currLynchable => this.savedLynchables.Add(currLynchable));
+				}
+			}
+
+			public void UpdateSerializedLynchablesFromLive() {
+				this.serializableLynchables = this.CurrentForcedLynchables();
+			}
+
+			public bool IsForcedLynchable(string targetName) {
+				bool output;
+				lock (this.forcedLynchablesLockObj) {
+					output = this.savedLynchables.Contains(targetName);
+				}
+				return output;
+			}
+
+			public LynchVoteResult ToggleLynchForce(string targetName) {
+				LynchVoteResult voteResult;
+				lock (this.forcedLynchablesLockObj) {
+					if (this.savedLynchables.Contains(targetName)) {
+						this.savedLynchables.Remove(targetName);
+						voteResult = LynchVoteResult.VotedProtect;
+					}
+					else {
+						this.savedLynchables.Add(targetName);
+						voteResult = LynchVoteResult.StartedLynch;
+					}
+				}
+				return voteResult;
 			}
 		}
 
@@ -102,12 +120,12 @@ namespace MobJustice {
 					currData = (ConfigData)xs.Deserialize(fs);
 				}
 			}
-			currData.serializableLynchables.ForEach(currLynchable => currData.savedLynchables.Add(currLynchable));
+			currData.UpdateLynchablesFromSerialized();
 			return currData;
 		}
 
 		public static void SaveConfigData(ConfigData config) {
-			config.serializableLynchables = config.savedLynchables.ToList();
+			config.UpdateLynchablesFromSerialized();
 			if (!File.Exists(ConfigFileName)) {
 				return;
 			}
