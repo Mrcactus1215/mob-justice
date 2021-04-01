@@ -28,12 +28,14 @@ namespace MobJustice {
 	}
 
 	public class MobJusticeStatus {
+		private readonly object lockObj = new object();
 		private readonly Dictionary<string, LynchState> playerLynchStates = new Dictionary<string, LynchState>();
 		private readonly Dictionary<string, HashSet<string>> playerLynchVotes = new Dictionary<string, HashSet<string>>();
 		private readonly Dictionary<string, int> votesCounter = new Dictionary<string, int>();
 
-		// XXX: All of the methods here that are not marked with "Unsafe"
-		// need to have locks implemented for thread safety
+		// All of the methods here that are marked with "Unsafe"
+		// MUST NOT use any mutex locking, as they may be
+		// called in sequence
 
 		private LynchState UnsafeGetLynchState(string targetName) {
 			return this.playerLynchStates.Get(targetName, LynchState.Lynchable);
@@ -63,8 +65,11 @@ namespace MobJustice {
 			LynchVoteResult voteResult = LynchVoteResult.VotedLynch;
 			HashSet<string> currPlayerVotes = this.UnsafeGetPlayerVotes(voterName);
 			int currVoteCount = this.UnsafeGetNumVotesAgainst(targetName);
-			currPlayerVotes.Add(targetName);
-			currVoteCount += 1;
+			bool wasContained = currPlayerVotes.Contains(targetName);
+			if (!wasContained) {
+				currPlayerVotes.Add(targetName);
+				currVoteCount += 1;
+			}
 			bool enoughVotes = currVoteCount >= votesToLynch;
 			if (enoughVotes && LynchState.Vulnerable == this.UnsafeGetLynchState(targetName)) {
 				this.UnsafeSetLynchState(targetName, LynchState.Lynchable);
@@ -78,66 +83,91 @@ namespace MobJustice {
 		private LynchVoteResult UnsafeVoteToNotLynch(string voterName, string targetName) {
 			HashSet<string> currPlayerVotes = this.UnsafeGetPlayerVotes(voterName);
 			int currVoteCount = this.UnsafeGetNumVotesAgainst(targetName);
-			currPlayerVotes.Remove(targetName);
-			currVoteCount -= 1;
+			bool wasContained = currPlayerVotes.Contains(targetName);
+			if (wasContained) {
+				currPlayerVotes.Remove(targetName);
+				currVoteCount -= 1;
+			}
 			this.playerLynchVotes[voterName] = currPlayerVotes;
 			this.votesCounter[targetName] = currVoteCount;
 			return LynchVoteResult.VotedProtect;
 		}
 
+		// All of the methods here that are not marked with "Unsafe"
+		// need to have locks implemented for thread safety
+		// As such, they also MUST NOT call each other
+
 		public void AdvanceLynchState(string targetName) {
-			LynchState oldState = this.UnsafeGetLynchState(targetName);
-			LynchState newState;
-			switch (oldState) {
-				case LynchState.Lynchable:
-					newState = LynchState.Protected;
-					break;
-				case LynchState.Protected:
-					newState = LynchState.Vulnerable;
-					break;
-				default:
-					newState = LynchState.Lynchable;
-					break;
+			lock (this.lockObj) {
+				LynchState oldState = this.UnsafeGetLynchState(targetName);
+				LynchState newState;
+				switch (oldState) {
+					case LynchState.Lynchable:
+						newState = LynchState.Protected;
+						break;
+					case LynchState.Protected:
+						newState = LynchState.Vulnerable;
+						break;
+					default:
+						newState = LynchState.Lynchable;
+						break;
+				}
+				this.UnsafeSetLynchState(targetName, newState);
 			}
-			this.UnsafeSetLynchState(targetName, newState);
 		}
 
 		public LynchVoteResult VoteToLynch(string voterName, string targetName, uint votesToLynch) {
-			return this.UnsafeVoteToLynch(voterName, targetName, votesToLynch);
-		}
-
-		public LynchVoteResult VoteToNotLynch(string voterName, string targetName) {
-			return this.UnsafeVoteToNotLynch(voterName, targetName);
-		}
-
-		public LynchVoteResult ToggleLynchVote(string voterName, string targetName, uint votesToLynch) {
 			LynchVoteResult voteResult;
-			if (this.UnsafeIsVotingFor(voterName, targetName)) {
-				voteResult = this.UnsafeVoteToNotLynch(voterName, targetName);
-			}
-			else {
+			lock (this.lockObj) {
 				voteResult = this.UnsafeVoteToLynch(voterName, targetName, votesToLynch);
 			}
 			return voteResult;
 		}
 
-		public void ForfeitVotes(string voterName) {
-			foreach (string targetName in this.playerLynchVotes.Get(voterName, new HashSet<string>())) {
-				this.votesCounter[targetName] -= 1;
+		public LynchVoteResult VoteToNotLynch(string voterName, string targetName) {
+			LynchVoteResult voteResult;
+			lock (this.lockObj) {
+				voteResult = this.UnsafeVoteToNotLynch(voterName, targetName);
 			}
-			this.playerLynchVotes.Remove(voterName);
+			return voteResult;
+		}
+
+		public LynchVoteResult ToggleLynchVote(string voterName, string targetName, uint votesToLynch) {
+			LynchVoteResult voteResult;
+			lock (this.lockObj) {
+				if (this.UnsafeIsVotingFor(voterName, targetName)) {
+					voteResult = this.UnsafeVoteToNotLynch(voterName, targetName);
+				}
+				else {
+					voteResult = this.UnsafeVoteToLynch(voterName, targetName, votesToLynch);
+				}
+			}
+			return voteResult;
+		}
+
+		public void ForfeitVotes(string voterName) {
+			lock (this.lockObj) {
+				this.UnsafeGetPlayerVotes(voterName).ForEach(targetName => this.votesCounter[targetName] -= 1);
+				this.playerLynchVotes.Remove(voterName);
+			}
 		}
 
 		public void RemoveLynchVotesFor(string targetName) {
-			this.playerLynchVotes.ForEach(kvpLyncher => kvpLyncher.Value.Remove(targetName));
-			this.votesCounter.Remove(targetName);
+			lock (this.lockObj) {
+				this.playerLynchVotes.ForEach(kvpLyncher => kvpLyncher.Value.Remove(targetName));
+				this.votesCounter.Remove(targetName);
+			}
 		}
 
 		public List<string> LynchVoteInfo() {
-			return new List<string>() {
-				String.Join(", ", this.votesCounter.Where(kvpVictim => 0 != kvpVictim.Value).Select(kvpVictim => kvpVictim.Key + ": " + kvpVictim.Value)),
-				String.Join(", ", this.playerLynchVotes.Where(kvpLyncher => 0 != kvpLyncher.Value.Count).Select(kvpLyncher => kvpLyncher.Key + ": " + kvpLyncher.Value.Count))
-			};
+			List<string> output;
+			lock (this.lockObj) {
+				output = new List<string>() {
+					String.Join(", ", this.votesCounter.Where(kvpVictim => 0 != kvpVictim.Value).Select(kvpVictim => kvpVictim.Key + ": " + kvpVictim.Value)),
+					String.Join(", ", this.playerLynchVotes.Where(kvpLyncher => 0 != kvpLyncher.Value.Count).Select(kvpLyncher => kvpLyncher.Key + ": " + kvpLyncher.Value.Count))
+				};
+			}
+			return output;
 		}
 	}
 
