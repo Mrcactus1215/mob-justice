@@ -125,7 +125,7 @@ namespace MobJustice {
 		}
 
 		public static void SaveConfigData(ConfigData config) {
-			config.UpdateLynchablesFromSerialized();
+			config.UpdateSerializedLynchablesFromLive();
 			if (!File.Exists(ConfigFileName)) {
 				return;
 			}
