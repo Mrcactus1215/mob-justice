@@ -216,13 +216,13 @@ namespace MobJustice {
 
 		private void LynchManagementThreadAction(string targetName) {
 			TSPlayer.All.SendMessage(targetName + " has been voted to be lynched. You have " + this.config.lynchDuration + " seconds to lynch them as much as possible.", Color.Red);
-			Thread.Sleep((int)this.config.lynchDuration * 1000);
+			Thread.Sleep((int)this.config.GetLynchDuration() * 1000);
 			this.lynchState.AdvanceLynchState(targetName);
 
 			if (0 < this.config.lynchCooldown) {
 				TSPlayer.All.SendMessage(targetName + " is no longer able to be lynched. They will be safe for the next " + this.config.lynchCooldown + " seconds.", Color.Green);
 			}
-			Thread.Sleep((int)this.config.lynchCooldown * 1000);
+			Thread.Sleep((int)this.config.GetLynchCooldownDuration() * 1000);
 			this.lynchState.AdvanceLynchState(targetName);
 
 			TSPlayer victimCandidate = null;

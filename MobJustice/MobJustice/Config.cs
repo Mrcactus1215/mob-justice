@@ -55,6 +55,8 @@ namespace MobJustice {
 			public byte unlynchPlayerMessageBlue = UNLYNCH_PLAYER_MESSAGE_BLUE;
 			public double lynchingPlayersRatio = LYNCHING_PLAYERS_RATIO;
 			public uint minPlayersForLynch = MIN_PLAYERS_FOR_LYNCH;
+			[NonSerialized()]
+			private readonly object lynchDurationsLockObj = new object();
 			public uint lynchDuration = LYNCH_DURATION;
 			public uint lynchCooldown = LYNCH_COOLDOWN;
 			[NonSerialized()]
@@ -79,6 +81,22 @@ namespace MobJustice {
 
 			public void UpdateSerializedLynchablesFromLive() {
 				this.serializableLynchables = this.CurrentForcedLynchables();
+			}
+
+			public uint GetLynchDuration() {
+				uint output;
+				lock (this.lynchDurationsLockObj) {
+					output = this.lynchDuration;
+				}
+				return output;
+			}
+
+			public uint GetLynchCooldownDuration() {
+				uint output;
+				lock (this.lynchDurationsLockObj) {
+					output = this.lynchCooldown;
+				}
+				return output;
 			}
 
 			public bool IsForcedLynchable(string targetName) {
