@@ -43,7 +43,7 @@ namespace TShockExtensions {
 			TSPlayer.All.SendData(packetType, "", player.Index);
 		}
 
-		public static void SetPvP(TSPlayer player) {
+		public static void EnablePvP(TSPlayer player) {
 			try {
 				player.TPlayer.hostile = true;
 			}
@@ -53,7 +53,7 @@ namespace TShockExtensions {
 			SendDataHelper(player, PacketTypes.TogglePvp);
 		}
 
-		public static void ClearPvP(TSPlayer player) {
+		public static void DisablePvP(TSPlayer player) {
 			try {
 				player.TPlayer.hostile = false;
 			}
@@ -63,7 +63,7 @@ namespace TShockExtensions {
 			SendDataHelper(player, PacketTypes.TogglePvp);
 		}
 
-		public static void SetTeam(TSPlayer player) {
+		public static void ForceNoTeam(TSPlayer player) {
 			try {
 				player.SetTeam(0);
 			}

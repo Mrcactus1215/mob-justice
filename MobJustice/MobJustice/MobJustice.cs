@@ -189,8 +189,13 @@ namespace MobJustice {
 		// ------------------------------
 
 		public MobJusticeEnforcer() {
-			// Config init
+			this.RefreshConfig();
+		}
+
+		public void RefreshConfig() {
+			// Load config from disk
 			this.config = Config.GetConfigData();
+			// Account for side effects of loading config
 			this.UpdateForcedTeamAndPvP();
 		}
 
@@ -204,8 +209,8 @@ namespace MobJustice {
 					continue;
 				}
 				if (this.IsLynchable(player.Name)) {
-					TShockExtensions.TShockExtensions.SetTeam(player);
-					TShockExtensions.TShockExtensions.SetPvP(player);
+					TShockExtensions.TShockExtensions.ForceNoTeam(player);
+					TShockExtensions.TShockExtensions.EnablePvP(player);
 				}
 			}
 		}
@@ -229,9 +234,8 @@ namespace MobJustice {
 
 			this.lynchState.RemoveLynchVotesFor(targetName);
 			if (!this.config.IsForcedLynchable(targetName)) {
-				TSPlayer.All.SendMessage(targetName + " is no longer lynchable", Color.Yellow);
 				if (null != victimCandidate) {
-					TShockExtensions.TShockExtensions.ClearPvP(victimCandidate);
+					TShockExtensions.TShockExtensions.DisablePvP(victimCandidate);
 				}
 			}
 		}
@@ -242,7 +246,7 @@ namespace MobJustice {
 
 		// Function for command: /forcelynchable targetName
 		public void ForceLynch(CommandArgs args) {
-			if (!this.config.pluginenabled) {
+			if (!this.config.pluginEnabled) {
 				return;
 			}
 
@@ -266,32 +270,32 @@ namespace MobJustice {
 
 			string targetName = victimCandidate.Name;
 			LynchVoteResult forceLynchResult = this.config.ToggleLynchForce(targetName);
-			bool isVotedLynchable = this.lynchState.IsVotedLynchTarget(targetName);
+			// We just modified the config, so save it to the disk
+			Config.SaveConfigData(this.config);
 			if (LynchVoteResult.StartedLynch == forceLynchResult) {
 				TSPlayer.All.SendMessage(
 					String.Format("{0}", this.config.lynchPlayerMessage.Replace("{PLAYER_NAME}", targetName)),
 					this.config.lynchPlayerMessageRed, this.config.lynchPlayerMessageGreen, this.config.lynchPlayerMessageBlue
 				);
-				TShockExtensions.TShockExtensions.SetPvP(victimCandidate);
-				TShockExtensions.TShockExtensions.SetTeam(victimCandidate);
+				TShockExtensions.TShockExtensions.EnablePvP(victimCandidate);
+				TShockExtensions.TShockExtensions.ForceNoTeam(victimCandidate);
 			}
 			else if (LynchVoteResult.VotedProtect == forceLynchResult) {
 				TSPlayer.All.SendMessage(
 					String.Format("{0}", this.config.unlynchPlayerMessage.Replace("{PLAYER_NAME}", targetName)),
 					this.config.unlynchPlayerMessageRed, this.config.unlynchPlayerMessageGreen, this.config.unlynchPlayerMessageBlue
 				);
-				if (!isVotedLynchable) {
-					TShockExtensions.TShockExtensions.ClearPvP(victimCandidate);
+				if (!this.lynchState.IsVotedLynchTarget(targetName)) {
+					TShockExtensions.TShockExtensions.DisablePvP(victimCandidate);
 				}
 			}
-			Config.SaveConfigData(this.config);
 		}
 
 		// Function for command: /lynch targetName
 		// TODO: Make this display all of the commands that the command user has permissions for
 		// if no arguments are given
 		public void VoteLynch(CommandArgs args) {
-			if (!this.config.pluginenabled) {
+			if (!this.config.pluginEnabled) {
 				return;
 			}
 
@@ -327,8 +331,8 @@ namespace MobJustice {
 				if (LynchVoteResult.StartedLynch == voteResult) {
 					Thread lynchManagementThread = new Thread(() => this.LynchManagementThreadAction(targetName));
 					lynchManagementThread.Start();
-					TShockExtensions.TShockExtensions.SetPvP(victimCandidate);
-					TShockExtensions.TShockExtensions.SetTeam(victimCandidate);
+					TShockExtensions.TShockExtensions.EnablePvP(victimCandidate);
+					TShockExtensions.TShockExtensions.ForceNoTeam(victimCandidate);
 				}
 			}
 		}
@@ -336,7 +340,7 @@ namespace MobJustice {
 		// Function for command: /showforcedlynches
 		// Command added per request of Thiefman also known as Medium Roast Steak or Stealownz
 		public void ReportForcedLynches(CommandArgs args) {
-			if (!this.config.pluginenabled) {
+			if (!this.config.pluginEnabled) {
 				return;
 			}
 
@@ -350,15 +354,15 @@ namespace MobJustice {
 
 		// Function for command: /showlynchvotes
 		public void ReportLynchVoteStates(CommandArgs args) {
-			if (!this.config.pluginenabled) {
+			if (!this.config.pluginEnabled) {
 				return;
 			}
 
 			List<string> lynchVoteInfo = this.lynchState.LynchVoteInfo();
 			string victimList = String.Format("Victims: {0}", lynchVoteInfo[0]);
 			string voterList = String.Format("Lynchers: {0}", lynchVoteInfo[1]);
-			args.Player.SendMessage(String.Format("{0}", victimList), 255, 255, 0);
-			args.Player.SendMessage(String.Format("{0}", voterList), 255, 255, 0);
+			args.Player.SendMessage(victimList, 255, 255, 0);
+			args.Player.SendMessage(voterList, 255, 255, 0);
 		}
 
 		// ------------------------------
@@ -373,8 +377,7 @@ namespace MobJustice {
 		}
 
 		public void OnReload(TShockAPI.Hooks.ReloadEventArgs args) {
-			this.config = Config.GetConfigData();
-			this.UpdateForcedTeamAndPvP();
+			this.RefreshConfig();
 			args?.Player?.SendSuccessMessage("[" + PLUGIN_NAME + "] Successfully reloaded config.");
 		}
 
@@ -383,20 +386,26 @@ namespace MobJustice {
 			if (null == player) {
 				return;
 			}
+
 			if (this.IsLynchable(player.Name)) {
-				TShockExtensions.TShockExtensions.SetPvP(player);
+				TShockExtensions.TShockExtensions.EnablePvP(player);
 				TSPlayer.All.SendMessage(String.Format("{0}'s PvP has been forcefully turned on.", player.Name), 255, 255, 255);
 			}
 		}
 
 		public void OnPlayerLeave(LeaveEventArgs args) {
+			TSPlayer player = TShock.Players[args.Who];
+			if (null == player) {
+				return;
+			}
+
 			// If a player leaves, they forfeit their lynch votes
-			string voterName = TShock.Players[args.Who].Name;
-			this.lynchState.ForfeitVotes(voterName);
+			this.lynchState.ForfeitVotes(player.Name);
 		}
 
 		public void OnGetNetData(GetDataEventArgs args) {
 			PacketTypes packetType = args.MsgID;
+			// Why the hell do GetDataEventArgs not have an args.Who like the other event args do?!
 			TSPlayer player = TShock.Players[args.Msg.whoAmI];
 			if (null == player) {
 				return;
@@ -408,19 +417,19 @@ namespace MobJustice {
 
 			switch (packetType) {
 				case PacketTypes.TogglePvp:
-					TShockExtensions.TShockExtensions.SetPvP(player);
+					TShockExtensions.TShockExtensions.EnablePvP(player);
 					player.SendMessage(
-						String.Format("{0}", this.config.message),
-						this.config.messageRed, this.config.messageGreen, this.config.messageBlue
+						String.Format("{0}", this.config.denyDisablePvPMessage),
+						this.config.denyDisablePvPMessageRed, this.config.denyDisablePvPMessageGreen, this.config.denyDisablePvPMessageBlue
 					);
 					args.Handled = true;
 					break;
 				// This packet is stupidly weird and bad. Why would it be called PlayerTeam when there's a packet called ToggleParty that doesn't work the way that the name suggests..
 				case PacketTypes.PlayerTeam:
-					TShockExtensions.TShockExtensions.SetTeam(player);
+					TShockExtensions.TShockExtensions.ForceNoTeam(player);
 					player.SendMessage(
-						String.Format("{0}", this.config.teamMessage),
-						this.config.teamMessageRed, this.config.teamMessageGreen, this.config.teamMessageBlue
+						String.Format("{0}", this.config.denyChangeTeamMessage),
+						this.config.denyChangeTeamMessageRed, this.config.denyChangeTeamMessageGreen, this.config.denyChangeTeamMessageBlue
 					);
 					// These handled thingies really worked out, it doesn't spam the chat anymore when you toggle...10/10
 					args.Handled = true;

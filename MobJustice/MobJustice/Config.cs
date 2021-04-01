@@ -9,22 +9,22 @@ namespace MobJustice {
 		#region Defaults
 
 		private const bool PLUGIN_ENABLED = true;
-		private const string MESSAGE = "You are not allowed to toggle PvP!";
-		private const byte MESSAGE_RED = 255;
-		private const byte MESSAGE_GREEN = 255;
-		private const byte MESSAGE_BLUE = 255;
-		private const string TEAM_MESSAGE = "You are not allowed to join a team!";
-		private const byte TEAM_MESSAGE_RED = 255;
-		private const byte TEAM_MESSAGE_GREEN = 255;
-		private const byte TEAM_MESSAGE_BLUE = 255;
-		private const string UNLYNCH_PLAYER_MESSAGE = "{PLAYER_NAME} is no longer lynchable";
-		private const byte UNLYNCH_PLAYER_MESSAGE_RED = 255;
-		private const byte UNLYNCH_PLAYER_MESSAGE_GREEN = 255;
-		private const byte UNLYNCH_PLAYER_MESSAGE_BLUE = 0;
+		private const string DENY_DISABLE_PVP_MESSAGE = "You are not allowed to toggle PvP!";
+		private const byte DENY_DISABLE_PVP_MESSAGE_RED = 255;
+		private const byte DENY_DISABLE_PVP_MESSAGE_GREEN = 255;
+		private const byte DENY_DISABLE_PVP_MESSAGE_BLUE = 255;
+		private const string DENY_CHANGE_TEAM_MESSAGE = "You are not allowed to join a team!";
+		private const byte DENY_CHANGE_TEAM_MESSAGE_RED = 255;
+		private const byte DENY_CHANGE_TEAM_MESSAGE_GREEN = 255;
+		private const byte DENY_CHANGE_TEAM_MESSAGE_BLUE = 255;
 		private const string LYNCH_PLAYER_MESSAGE = "{PLAYER_NAME} is now lynchable";
 		private const byte LYNCH_PLAYER_MESSAGE_RED = 255;
 		private const byte LYNCH_PLAYER_MESSAGE_GREEN = 255;
 		private const byte LYNCH_PLAYER_MESSAGE_BLUE = 0;
+		private const string UNLYNCH_PLAYER_MESSAGE = "{PLAYER_NAME} is no longer lynchable";
+		private const byte UNLYNCH_PLAYER_MESSAGE_RED = 255;
+		private const byte UNLYNCH_PLAYER_MESSAGE_GREEN = 255;
+		private const byte UNLYNCH_PLAYER_MESSAGE_BLUE = 0;
 		private const double LYNCHING_PLAYERS_RATIO = 0.5;
 		private const int MIN_PLAYERS_FOR_LYNCH = 2;
 		private const int LYNCH_DURATION = 5 * 60;
@@ -36,15 +36,15 @@ namespace MobJustice {
 
 		[Serializable()]
 		public class ConfigData {
-			public bool pluginenabled = PLUGIN_ENABLED;
-			public string message = MESSAGE;
-			public byte messageRed = MESSAGE_RED;
-			public byte messageGreen = MESSAGE_GREEN;
-			public byte messageBlue = MESSAGE_BLUE;
-			public string teamMessage = TEAM_MESSAGE;
-			public byte teamMessageRed = TEAM_MESSAGE_RED;
-			public byte teamMessageGreen = TEAM_MESSAGE_GREEN;
-			public byte teamMessageBlue = TEAM_MESSAGE_BLUE;
+			public bool pluginEnabled = PLUGIN_ENABLED;
+			public string denyDisablePvPMessage = DENY_DISABLE_PVP_MESSAGE;
+			public byte denyDisablePvPMessageRed = DENY_DISABLE_PVP_MESSAGE_RED;
+			public byte denyDisablePvPMessageGreen = DENY_DISABLE_PVP_MESSAGE_GREEN;
+			public byte denyDisablePvPMessageBlue = DENY_DISABLE_PVP_MESSAGE_BLUE;
+			public string denyChangeTeamMessage = DENY_CHANGE_TEAM_MESSAGE;
+			public byte denyChangeTeamMessageRed = DENY_CHANGE_TEAM_MESSAGE_RED;
+			public byte denyChangeTeamMessageGreen = DENY_CHANGE_TEAM_MESSAGE_GREEN;
+			public byte denyChangeTeamMessageBlue = DENY_CHANGE_TEAM_MESSAGE_BLUE;
 			public string lynchPlayerMessage = LYNCH_PLAYER_MESSAGE;
 			public byte lynchPlayerMessageRed = LYNCH_PLAYER_MESSAGE_RED;
 			public byte lynchPlayerMessageGreen = LYNCH_PLAYER_MESSAGE_GREEN;
