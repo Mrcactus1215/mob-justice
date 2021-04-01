@@ -7,6 +7,7 @@ using Extensions;
 
 using Microsoft.Xna.Framework;
 
+using TerrariaApi.Server;
 using TShockAPI;
 
 namespace MobJustice {
@@ -28,35 +29,71 @@ namespace MobJustice {
 
 		private readonly Dictionary<string, DateTime> lynchableTimes = new Dictionary<string, DateTime>();
 
-		public HashSet<string> GetPlayerVotes(string voterName) {
+		private LynchState UnsafeGetLynchState(string targetName) {
+			return this.playerLynchStates.Get(targetName, LynchState.Lynchable);
+		}
+
+		private LynchState UnsafeSetLynchState(string targetName, LynchState newState) {
+			return this.playerLynchStates[targetName] = newState;
+		}
+
+		private HashSet<string> UnsafeGetPlayerVotes(string voterName) {
 			return this.playerLynchVotes.Get(voterName, new HashSet<string>());
 		}
 		
-		public int GetNumVotesAgainst(string targetName) {
+		private int UnsafeGetNumVotesAgainst(string targetName) {
 			return this.votesCounter.Get(targetName, 0);
 		}
 
-		public DateTime GetLastLynchTime(string targetName, TimeSpan lynchCycleDuration) {
+		public DateTime UnsafeGetLastLynchTime(string targetName, TimeSpan lynchCycleDuration) {
 			return this.lynchableTimes.Get(targetName, DateTime.Now - lynchCycleDuration);
 		}
 
-		public bool IsVotingFor(string voterName, string targetName) {
-			return this.GetPlayerVotes(voterName).Contains(targetName);
+		public void AdvanceLynchState(string targetName) {
+			LynchState oldState = this.UnsafeGetLynchState(targetName);
+			LynchState newState;
+			switch (oldState) {
+				case LynchState.Lynchable:
+					newState = LynchState.Protected;
+					break;
+				case LynchState.Protected:
+					newState = LynchState.Vulnerable;
+					break;
+				default:
+					newState = LynchState.Lynchable;
+					break;
+			}
+			this.UnsafeSetLynchState(targetName, newState);
 		}
 
-		public bool VoteToLynch(string voterName, string targetName) {
-			HashSet<string> currPlayerVotes = this.GetPlayerVotes(voterName);
-			int currVoteCount = this.GetNumVotesAgainst(targetName);
+		public bool IsVotingFor(string voterName, string targetName) {
+			return this.UnsafeGetPlayerVotes(voterName).Contains(targetName);
+		}
+
+		public bool IsVotedLynchTarget(string targetName) {
+			return LynchState.Lynchable == this.UnsafeGetLynchState(targetName);
+		}
+
+		public bool VoteToLynch(string voterName, string targetName, bool allowLynch) {
+			bool newlyLynchable = false;
+			HashSet<string> currPlayerVotes = this.UnsafeGetPlayerVotes(voterName);
+			int currVoteCount = this.UnsafeGetNumVotesAgainst(targetName);
 			currPlayerVotes.Add(targetName);
 			currVoteCount += 1;
+			int currPlayercount = TShock.Utils.GetActivePlayerCount();
+			bool enoughVotes = currVoteCount > (currPlayercount/2);
+			if (allowLynch && enoughVotes && LynchState.Vulnerable == this.UnsafeGetLynchState(targetName)) {
+				this.UnsafeSetLynchState(targetName, LynchState.Lynchable);
+				newlyLynchable = true;
+			}
 			this.playerLynchVotes[voterName] = currPlayerVotes;
 			this.votesCounter[targetName] = currVoteCount;
-			return false;
+			return newlyLynchable;
 		}
 
 		public void VoteToNotLynch(string voterName, string targetName) {
-			HashSet<string> currPlayerVotes = this.GetPlayerVotes(voterName);
-			int currVoteCount = this.GetNumVotesAgainst(targetName);
+			HashSet<string> currPlayerVotes = this.UnsafeGetPlayerVotes(voterName);
+			int currVoteCount = this.UnsafeGetNumVotesAgainst(targetName);
 			currPlayerVotes.Remove(targetName);
 			currVoteCount -= 1;
 			this.playerLynchVotes[voterName] = currPlayerVotes;
@@ -93,6 +130,7 @@ namespace MobJustice {
 		// Plugin vars
 		// ------------------------------
 
+		public const string PLUGIN_NAME = "Mob Justice"; 
 		public Config.ConfigData config;
 		public MobJusticeStatus lynchState;
 
@@ -100,17 +138,18 @@ namespace MobJustice {
 		// Plugin funcs
 		// ------------------------------
 
-		/*
-		// Nothing to do here
-		public MobJusticeEnforcer() { }
-		*/
+		public MobJusticeEnforcer() {
+			// Config init
+			this.config = Config.GetConfigData();
+			this.UpdateLynchRefs();
+		}
 
 		public void UpdateLynchRefs() {
 			foreach (TSPlayer player in TShock.Players) {
 				if (null == player) {
 					continue;
 				}
-				if (this.config.savedLynchables.Contains(player.Name) || this.IsVotedLynchTarget(player.Name)) {
+				if (this.config.savedLynchables.Contains(player.Name) || this.lynchState.IsVotedLynchTarget(player.Name)) {
 					TShockExtensions.TShockExtensions.SetTeam(player);
 					TShockExtensions.TShockExtensions.SetPvP(player);
 				}
@@ -120,7 +159,7 @@ namespace MobJustice {
 		public bool IsVictimLynchCooling(string targetName) {
 			// By default, the player is assumed to be able to be voted into the lynchable state
 			TimeSpan lynchCycleDuration = TimeSpan.FromSeconds(this.config.lynchDuration + this.config.lynchCooldown);
-			DateTime lastLynchTime = this.lynchState.GetLastLynchTime(targetName, lynchCycleDuration);
+			DateTime lastLynchTime = this.lynchState.UnsafeGetLastLynchTime(targetName, lynchCycleDuration);
 			TimeSpan elapsedLynchTime = DateTime.Now - lastLynchTime;
 			return elapsedLynchTime >= TimeSpan.FromSeconds(this.config.lynchDuration) && !this.IsVictimLynchingCooled(targetName);
 		}
@@ -128,22 +167,19 @@ namespace MobJustice {
 		public bool IsVictimLynchingCooled(string targetName) {
 			// By default, the player is assumed to be able to be voted into the lynchable state
 			TimeSpan lynchCycleDuration = TimeSpan.FromSeconds(this.config.lynchDuration + this.config.lynchCooldown);
-			DateTime lastLynchTime = this.lynchState.GetLastLynchTime(targetName, lynchCycleDuration);
+			DateTime lastLynchTime = this.lynchState.UnsafeGetLastLynchTime(targetName, lynchCycleDuration);
 			TimeSpan elapsedLynchTime = DateTime.Now - lastLynchTime;
 			return elapsedLynchTime > lynchCycleDuration;
 		}
 
-		public bool IsVotedLynchTarget(string targetName) {
-			int currVotes = this.lynchState.GetNumVotesAgainst(targetName);
-			int currPlayercount = TShock.Utils.GetActivePlayerCount();
-			//TSPlayer.All.SendMessage("Target " + targetName + " has " + currVotes + " votes against them currently.", 255, 255, 0);
-			//TSPlayer.All.SendMessage("There are presently " + currPlayercount + " players connected.", 255, 255, 0);
-			bool enoughVotes = (3 <= currPlayercount) && (currVotes > currPlayercount/2);
-			return enoughVotes && !this.IsVictimLynchCooling(targetName);
-		}
-
 		private void LynchManagementThreadAction(string targetName) {
+			TSPlayer.All.SendMessage(targetName + " has been voted to be lynched. You have " + this.config.lynchDuration + " seconds to lynch them as much as possible.", Color.Red);
 			Thread.Sleep((int)this.config.lynchDuration * 1000);
+			this.lynchState.AdvanceLynchState(targetName);
+			
+			TSPlayer.All.SendMessage(targetName + " is no longer able to be lynched. They will be safe for the next " + this.config.lynchCooldown + " seconds.", Color.Green);
+			Thread.Sleep((int)this.config.lynchCooldown * 1000);
+			this.lynchState.AdvanceLynchState(targetName);
 
 			TSPlayer victimCandidate = null;
 			try {
@@ -207,7 +243,7 @@ namespace MobJustice {
 
 			string targetName = victimCandidate.Name;
 			bool lynchable = this.config.savedLynchables.Contains(targetName);
-			bool isVotedLynchable = this.IsVotedLynchTarget(targetName);
+			bool isVotedLynchable = this.lynchState.IsVotedLynchTarget(targetName);
 			if (!lynchable) {
 				this.config.savedLynchables.Add(targetName);
 				TSPlayer.All.SendMessage(
@@ -260,23 +296,23 @@ namespace MobJustice {
 				args.Player.SendErrorMessage("You can't change your vote for someone once they become lynchable.");
 				return;
 			}
-			bool wasVotedLynchable = this.IsVotedLynchTarget(targetName);
+			bool newlyLynchable = false;
 			if (this.lynchState.IsVotingFor(voterName, targetName)) {
 				this.lynchState.VoteToNotLynch(voterName, targetName);
 				args.Player.SendSuccessMessage("Your vote for {0} to be lynched was removed.", targetName);
 			}
 			else {
-				this.lynchState.VoteToLynch(voterName, targetName);
+				newlyLynchable = this.lynchState.VoteToLynch(
+					voterName, targetName,
+					this.config.minPlayersForLynch <= (TShock.Utils.GetActivePlayerCount()/2)
+				);
 				args.Player.SendSuccessMessage("You voted for {0} to be lynched.", targetName);
 			}
-			bool isVotedLynchTarget = this.IsVotedLynchTarget(targetName);
-			if (isVotedLynchTarget) {
-				if (!wasVotedLynchable) {
-					this.lynchState.SetLynchTime(targetName, DateTime.Now);
-					Thread lynchExpirationThread = new Thread(() => this.LynchManagementThreadAction(targetName));
-					lynchExpirationThread.Start();
-					TSPlayer.All.SendMessage(targetName + " has been voted to be lynched. You have " + this.config.lynchDuration + " seconds to lynch them as much as possible.", Color.Yellow);
-				}
+			bool isVotedLynchTarget = this.lynchState.IsVotedLynchTarget(targetName);
+			if (newlyLynchable) {
+				this.lynchState.SetLynchTime(targetName, DateTime.Now);
+				Thread lynchManagementThread = new Thread(() => this.LynchManagementThreadAction(targetName));
+				lynchManagementThread.Start();
 				TShockExtensions.TShockExtensions.SetPvP(victimCandidate);
 				TShockExtensions.TShockExtensions.SetTeam(victimCandidate);
 			}
@@ -307,6 +343,73 @@ namespace MobJustice {
 			string voterList = String.Format("Lynchers: {0}", this.lynchState.VoterInfo());
 			args.Player.SendMessage(String.Format("{0}", victimList), 255, 255, 0);
 			args.Player.SendMessage(String.Format("{0}", voterList), 255, 255, 0);
+		}
+
+		// ------------------------------
+		// Hooked events
+		// ------------------------------
+
+		public void Game_Initialize(EventArgs args) {
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.force" }, this.ForceLynch, "forcelynchable"));
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.lynch" }, this.VoteLynch, "lynch"));
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.reportforced" }, this.ReportForcedLynches, "showforcedlynches"));
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.reportvotes" }, this.ReportLynchVoteStates, "showlynchvotes"));
+			// TODO: Make /lynch display all commands but only display the commands the being that ran the command has permissions for
+		}
+
+		public void OnReload(TShockAPI.Hooks.ReloadEventArgs args) {
+			this.config = Config.GetConfigData();
+			this.UpdateLynchRefs();
+			args?.Player?.SendSuccessMessage("[" + PLUGIN_NAME + "] Successfully reloaded config.");
+		}
+
+		public void OnPlayerJoin(JoinEventArgs args) {
+			TSPlayer player = TShock.Players[args.Who];
+			if (null == player) {
+				return;
+			}
+			if (this.config.savedLynchables.Contains(player.Name) || this.lynchState.IsVotedLynchTarget(player.Name)) {
+				TShockExtensions.TShockExtensions.SetPvP(player);
+				TSPlayer.All.SendMessage(String.Format("{0}'s PvP has been forcefully turned on", player.Name), 255, 255, 255);
+			}
+		}
+
+		public void OnPlayerLeave(LeaveEventArgs args) {
+			// If a player leaves, they forfeit their lynch votes
+			string voterName = TShock.Players[args.Who].Name;
+			this.lynchState.ForfeitVotes(voterName);
+		}
+
+		public void OnGetNetData(GetDataEventArgs args) {
+			PacketTypes packetType = args.MsgID;
+			TSPlayer player = TShock.Players[args.Msg.whoAmI];
+			if (null == player) {
+				return;
+			}
+			if (!this.config.savedLynchables.Contains(player.Name) && !this.lynchState.IsVotedLynchTarget(player.Name)) {
+				return;
+			}
+			// Player is lynchable; override attempts to set PvP or team state accordingly
+			switch (packetType) {
+				case PacketTypes.TogglePvp:
+					TShockExtensions.TShockExtensions.SetPvP(player);
+					player.SendMessage(
+						String.Format("{0}", this.config.message),
+						this.config.messageRed, this.config.messageGreen, this.config.messageBlue
+					);
+					args.Handled = true;
+					break;
+				// This packet is stupidly weird and bad. Why would it be called PlayerTeam when there's a packet called ToggleParty that doesn't work the way that the name suggests..
+				case PacketTypes.PlayerTeam:
+					TShockExtensions.TShockExtensions.SetTeam(player);
+					player.SendMessage(
+						String.Format("{0}", this.config.teamMessage),
+						this.config.teamMessageRed, this.config.teamMessageGreen, this.config.teamMessageBlue
+					);
+					// These handled thingies really worked out, it doesn't spam the chat anymore when you toggle...10/10
+					args.Handled = true;
+					break;
+			}
 		}
 	}
 }
