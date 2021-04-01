@@ -38,7 +38,7 @@ namespace MobJustice {
 		// called in sequence
 
 		private LynchState UnsafeGetLynchState(string targetName) {
-			return this.playerLynchStates.Get(targetName, LynchState.Lynchable);
+			return this.playerLynchStates.Get(targetName, LynchState.Vulnerable);
 		}
 
 		private LynchState UnsafeSetLynchState(string targetName, LynchState newState) {
