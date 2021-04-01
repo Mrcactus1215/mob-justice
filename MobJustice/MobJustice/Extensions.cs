@@ -15,7 +15,7 @@ namespace Extensions {
 			}
 		}
 
-		// Making .ForEach work on Dictionaries to make it easy to right one liners
+		// Making .ForEach work on Dictionaries to make it easy to write one liners
 		// is just lazy, but laziness is a virtue.
 
 		public static void ForEach<T, U>(this Dictionary<T, U> d, Action<KeyValuePair<T, U>> a) {
