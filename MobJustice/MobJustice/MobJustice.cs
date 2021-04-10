@@ -181,7 +181,7 @@ namespace MobJustice {
 
 		public const string PLUGIN_NAME = "Mob Justice"; 
 		public Config.ConfigData config;
-		public MobJusticeStatus lynchState;
+		public MobJusticeStatus lynchState = new MobJusticeStatus();
 
 		// ------------------------------
 		// Plugin funcs
