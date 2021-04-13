@@ -26,6 +26,11 @@ namespace MobJustice {
 		VotedLynch,
 		StartedLynch
 	}
+	public enum PlayerDifficulty {
+		Softcore,
+		Mediumcore,
+		Hardcore
+	}
 
 	public class MobJusticeStatus {
 		private readonly object lockObj = new object();
@@ -275,6 +280,13 @@ namespace MobJustice {
 					String.Format("{0}", this.config.lynchPlayerMessage.Replace("{PLAYER_NAME}", targetName)),
 					this.config.lynchPlayerMessageRed, this.config.lynchPlayerMessageGreen, this.config.lynchPlayerMessageBlue
 				);
+				if ((int)PlayerDifficulty.Mediumcore == victimCandidate.Difficulty) {
+					//Info Message is yellow
+					args.Player.SendInfoMessage(String.Format("Warning! {0} is a mediumcore player"), victimCandidate.Name);
+				}
+				if ((int)PlayerDifficulty.Hardcore == victimCandidate.Difficulty) {
+					args.Player.SendInfoMessage(String.Format("Warning! {0} is a hardcore player"), victimCandidate.Name);
+				}
 				TShockExtensions.TShockExtensions.EnablePvP(victimCandidate);
 				TShockExtensions.TShockExtensions.ForceNoTeam(victimCandidate);
 			}
@@ -312,6 +324,19 @@ namespace MobJustice {
 			}
 			catch (ArgumentException ae) {
 				args.Player.SendErrorMessage(ae.Message);
+				return;
+			}
+
+			if ((int)PlayerDifficulty.Hardcore == victimCandidate.Difficulty && !this.config.allowHardcoreLynching) {
+				args.Player.SendErrorMessage("You cannot vote to lynch a hardcore player!");
+				return;
+			}
+			if ((int)PlayerDifficulty.Mediumcore == victimCandidate.Difficulty && !this.config.allowMediumcoreLynching) {
+				args.Player.SendErrorMessage("You cannot vote to lynch a mediumcore player!");
+				return;
+			}
+			if ((int)PlayerDifficulty.Softcore == victimCandidate.Difficulty && !this.config.allowSoftcoreLynching) {
+				args.Player.SendErrorMessage("You cannot vote to lynch a softcore player!");
 				return;
 			}
 
