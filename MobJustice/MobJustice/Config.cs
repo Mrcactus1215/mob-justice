@@ -29,6 +29,9 @@ namespace MobJustice {
 		private const int MIN_PLAYERS_FOR_LYNCH = 2;
 		private const int LYNCH_DURATION = 5 * 60;
 		private const int LYNCH_COOLDOWN = 15 * 60;
+		private const bool ALLOW_HARDCORE_LYNCHING = false;
+		private const bool ALLOW_MEDIUMCORE_LYNCHING = false;
+		private const bool ALLOW_SOFTCORE_LYNCHING = true;
 
 		#endregion
 
@@ -55,6 +58,9 @@ namespace MobJustice {
 			public byte unlynchPlayerMessageBlue = UNLYNCH_PLAYER_MESSAGE_BLUE;
 			public double lynchingPlayersRatio = LYNCHING_PLAYERS_RATIO;
 			public uint minPlayersForLynch = MIN_PLAYERS_FOR_LYNCH;
+			public bool allowHardcoreLynching = ALLOW_HARDCORE_LYNCHING;
+			public bool allowMediumcoreLynching = ALLOW_MEDIUMCORE_LYNCHING;
+			public bool allowSoftcoreLynching = ALLOW_SOFTCORE_LYNCHING;
 			[NonSerialized()]
 			private readonly object lynchDurationsLockObj = new object();
 			public uint lynchDuration = LYNCH_DURATION;
