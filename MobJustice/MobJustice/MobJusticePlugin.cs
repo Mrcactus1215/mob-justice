@@ -22,7 +22,9 @@ namespace MobJustice {
 			get { return MobJusticeEnforcer.PLUGIN_NAME; }
 		}
 
-		public override Version Version => new Version(2, 1, 20210413, 1);
+
+		public static Version PluginVer => new Version(2, 2, 20220207, 1);
+		public override Version Version => PluginVer;
 
 		public MobJusticePlugin(Main game) : base(game) {
 			// Load priority; smaller numbers load earlier
