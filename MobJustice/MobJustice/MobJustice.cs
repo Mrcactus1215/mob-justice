@@ -177,6 +177,12 @@ namespace MobJustice {
 			}
 			return output;
 		}
+
+		public List<string> LynchVotesByVoter(string currPlayerName) {
+			lock (this.lockObj) {
+				return this.playerLynchVotes.Where(kvpLyncher => kvpLyncher.Value.Contains(currPlayerName)).Select(kvpLyncher => kvpLyncher.Key).ToList();
+			};
+		}
 	}
 
 	public class MobJusticeEnforcer {
@@ -247,7 +253,7 @@ namespace MobJustice {
 		// Plugin commands
 		// ------------------------------
 
-		// Function for command: /forcelynchable targetName
+		// Function for command: /lynch force targetName
 		public void ForceLynch(CommandArgs args) {
 			if (!this.config.pluginEnabled) {
 				return;
@@ -258,7 +264,7 @@ namespace MobJustice {
 				return;
 			}
 
-			if (!TShockExtensions.TShockExtensions.ArgCountCheck(args, 1, "/forcelynchable targetName")) {
+			if (!TShockExtensions.TShockExtensions.ArgCountCheck(args, 1, "/lynch force targetName")) {
 				return;
 			}
 
@@ -301,9 +307,7 @@ namespace MobJustice {
 			}
 		}
 
-		// Function for command: /lynch targetName
-		// TODO: Make this display all of the commands that the command user has permissions for
-		// if no arguments are given
+		// Function for command: /lynch vote targetName
 		public void VoteLynch(CommandArgs args) {
 			if (!this.config.pluginEnabled) {
 				return;
@@ -314,7 +318,7 @@ namespace MobJustice {
 				return;
 			}
 
-			if (!TShockExtensions.TShockExtensions.ArgCountCheck(args, 1, "/lynch targetName")) {
+			if (!TShockExtensions.TShockExtensions.ArgCountCheck(args, 1, "/lynch vote targetName")) {
 				return;
 			}
 
@@ -360,7 +364,60 @@ namespace MobJustice {
 			}
 		}
 
-		// Function for command: /showforcedlynches
+		// Function for command: /lynch
+		// TODO: Make this display all of the commands that the command user has permissions for
+		// if no arguments are given
+		public void Lynch(CommandArgs args) {
+			bool doSubCommand = false;
+			string subCommand = "";
+			if (0 < args.Parameters.Count) {
+				subCommand = args.Parameters[0];
+				args.Parameters.RemoveAt(0);
+				doSubCommand = true;
+				switch (subCommand) {
+					case "vote":
+						VoteLynch(args);
+						break;
+					case "myvotes":
+						ReportLynchVotesByVoter(args);
+						break;
+					case "showvotes":
+						ReportLynchVoteStates(args);
+						break;
+					case "force":
+						ForceLynch(args);
+						break;
+					case "showforced":
+						ReportForcedLynches(args);
+						break;
+				}
+			}
+			else {
+				List<string> subCommList = new List<string>();
+				if (args.Player.HasPermission("mobjustice.vote")) {
+					subCommList.Add("vote");
+				}
+				if (args.Player.HasPermission("mobjustice.myvotes")) {
+					subCommList.Add("myvotes");
+				}
+				if (args.Player.HasPermission("mobjustice.showvotes")) {
+					subCommList.Add("showvotes");
+				}
+				if (args.Player.HasPermission("mobjustice.force")) {
+					subCommList.Add("force");
+				}
+				if (args.Player.HasPermission("mobjustice.showforced")) {
+					subCommList.Add("showforced");
+				}
+				args.Player.SendMessage("Mob Justice plugin by Hextator and Valdas.", Color.Yellow);
+				args.Player.SendMessage(String.Format("Plugin version: {0}", MobJusticePlugin.PluginVer), Color.Yellow);
+				args.Player.SendMessage("We're gonna get you, Mouserat!", Color.Yellow);
+				args.Player.SendMessage(String.Format("Available subcommands: {0}", String.Join(", ", subCommList)), Color.Yellow);
+				args.Player.SendMessage("Syntax: /lynch <subCommand> [subCommandArguments ...]", Color.Yellow);
+			}
+			
+		}
+		// Function for command: /lynch showforced
 		// Command added per request of Thiefman also known as Medium Roast Steak or Stealownz
 		public void ReportForcedLynches(CommandArgs args) {
 			if (!this.config.pluginEnabled) {
@@ -375,7 +432,7 @@ namespace MobJustice {
 			);
 		}
 
-		// Function for command: /showlynchvotes
+		// Function for command: /lynch showvotes
 		public void ReportLynchVoteStates(CommandArgs args) {
 			if (!this.config.pluginEnabled) {
 				return;
@@ -388,15 +445,31 @@ namespace MobJustice {
 			args.Player.SendMessage(voterList, 255, 255, 0);
 		}
 
+		// Function for command /lynch myvotes
+		public void ReportLynchVotesByVoter(CommandArgs args) {
+			if (!this.config.pluginEnabled) {
+				return;
+			}
+			List<string> lynchVotesByVoter = this.lynchState.LynchVotesByVoter(args.Player.Name);
+
+			string votesList = "You have voted for: " + String.Join(", ", lynchVotesByVoter);
+			args.Player.SendMessage(votesList, 255, 255, 0);
+
+
+		}
+
 		// ------------------------------
 		// Hooked events
 		// ------------------------------
 
 		public void Game_Initialize(EventArgs args) {
-			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.force" }, this.ForceLynch, "forcelynchable"));
-			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.lynch" }, this.VoteLynch, "lynch"));
-			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.reportforced" }, this.ReportForcedLynches, "showforcedlynches"));
-			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.reportvotes" }, this.ReportLynchVoteStates, "showlynchvotes"));
+			//Some events are commented because they were migrated to parent command /lynch and its function Lynch()
+
+			//Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.force" }, this.ForceLynch, "forcelynchable"));
+			//Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.lynch" }, this.VoteLynch, "votelynch"));
+			Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.lynch" }, this.Lynch, "lynch"));
+			//Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.reportforced" }, this.ReportForcedLynches, "showforcedlynches"));
+			//Commands.ChatCommands.Add(new Command(new List<string>() { "mobjustice.reportvotes" }, this.ReportLynchVoteStates, "showlynchvotes"));
 		}
 
 		public void OnReload(TShockAPI.Hooks.ReloadEventArgs args) {
